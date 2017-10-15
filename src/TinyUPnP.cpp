@@ -187,10 +187,11 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo) {
 	}
 
 	// extract location from message
+	String responseLowerCase = response.toLowerCase();
 	String location = "";
-	String location_searchStringStart = "Location: ";
+	String location_searchStringStart = "location: ";  // lower case since we look for match in responseLowerCase
 	String location_searchStringEnd = "\r\n";
-	int location_indexStart = response.indexOf(location_searchStringStart);
+	int location_indexStart = responseLowerCase.indexOf(location_searchStringStart);
 	if (location_indexStart != -1) {
 		location_indexStart += location_searchStringStart.length();
 		int location_indexEnd = response.indexOf(location_searchStringEnd, location_indexStart);
