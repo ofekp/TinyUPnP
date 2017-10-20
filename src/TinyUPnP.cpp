@@ -178,6 +178,7 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo) {
 	}
 
 	String response = packetBuffer;
+	String responseLowerCase = packetBuffer;
 	debugPrintln("Gateway packet content:");
 	debugPrintln(response);
 
@@ -187,10 +188,11 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo) {
 	}
 
 	// extract location from message
+	responseLowerCase.toLowerCase();
 	String location = "";
-	String location_searchStringStart = "Location: ";
+	String location_searchStringStart = "location: ";  // lower case since we look for match in responseLowerCase
 	String location_searchStringEnd = "\r\n";
-	int location_indexStart = response.indexOf(location_searchStringStart);
+	int location_indexStart = responseLowerCase.indexOf(location_searchStringStart);
 	if (location_indexStart != -1) {
 		location_indexStart += location_searchStringStart.length();
 		int location_indexEnd = response.indexOf(location_searchStringEnd, location_indexStart);
@@ -237,6 +239,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	// make an HTTP request
 	_wifiClient.println("GET " + deviceInfo->path + " HTTP/1.1");
 	_wifiClient.println("Connection: close");
+	_wifiClient.println("Content-Length: 0");
 	_wifiClient.println();
 	
 	// wait for the response
