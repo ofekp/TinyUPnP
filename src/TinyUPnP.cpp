@@ -241,6 +241,7 @@ boolean TinyUPnP::connectToIGD(gatewayInfo *deviceInfo) {
 boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	// make an HTTP request
 	_wifiClient.println("GET " + deviceInfo->path + " HTTP/1.1");
+	_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
 	_wifiClient.println("Connection: close");
 	_wifiClient.println("Content-Length: 0");
 	_wifiClient.println();
