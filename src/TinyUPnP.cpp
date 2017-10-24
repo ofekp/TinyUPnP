@@ -217,6 +217,9 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo) {
 	deviceInfo->host = host;
 	deviceInfo->port = port;
 	deviceInfo->path = path;
+	// The following is the default and may be overridden if URLBase is specified
+	deviceInfo->baseUrlHost = host;
+	deviceInfo->baseUrlPort = port;
 	
 	debugPrintln(ipAddressToString(host));
 	debugPrintln(String(port));
