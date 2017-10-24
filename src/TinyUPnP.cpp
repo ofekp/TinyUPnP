@@ -260,6 +260,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	boolean eventSubURLFound = false;
 	while (_wifiClient.available()) {
 		String line = _wifiClient.readStringUntil('\r');
+		debugPrint(line);
 		if (!(upnpServiceFound && eventSubURLFound) && line.indexOf("<URLBase>") >= 0) {
 			// e.g. <URLBase>http://192.168.1.1:5432/</URLBase>
 			String baseUrl = getTagContent(line, "URLBase");
@@ -279,7 +280,8 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 		}
 	
 		if (!(upnpServiceFound && eventSubURLFound) && line.indexOf("<service>") >= 0) {
-			debugPrintln("<service>");
+			//debugPrintln("<service>");
+			debugPrint(line);
 			while (line.indexOf("</service>") < 0) {
 				line = _wifiClient.readStringUntil('\r');
 				if (line.indexOf(UPNP_SERVICE_TYPE) >= 0 || line.indexOf(UPNP_SERVICE_TYPE_2) >= 0) {
@@ -296,7 +298,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 					debugPrintln("]");
 				}
 			}
-			debugPrintln("</service>");
+			//debugPrintln("</service>");
 		}
 	}
 	
