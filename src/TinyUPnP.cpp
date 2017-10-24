@@ -279,7 +279,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			debugPrintln("<service>");
 			while (line.indexOf("</service>") < 0) {
 				line = _wifiClient.readStringUntil('\r');
-				if (line.indexOf(UPNP_SERVICE_TYPE) >= 0) {
+				if (line.indexOf(UPNP_SERVICE_TYPE) >= 0 || line.indexOf(UPNP_SERVICE_TYPE_2) >= 0) {
 					debugPrintln("WANPPPConnection service found!");
 					upnpServiceFound = true;
 				}
