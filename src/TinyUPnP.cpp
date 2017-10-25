@@ -279,15 +279,26 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			debugPrint("] and base port [");
 			debugPrint(String(port));
 			debugPrintln("]");
+		} else {
+			debugPrintln("could not find URLBase");
 		}
 		
-		if (!upnpServiceFound && ( (index_in_line = line.indexOf(UPNP_SERVICE_TYPE, index_in_line)) >= 0
-					  || (index_in_line = line.indexOf(UPNP_SERVICE_TYPE_2, index_in_line)) >= 0 )) {
-			index_in_line += 70;
+		int service_type_index = line.indexOf(UPNP_SERVICE_TYPE);
+		int service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_2);
+		if (!upnpServiceFound && service_type_index >= 0) {
+			index_in_line += service_type_index;
 			debugPrintln("WANPPPConnection service found!");
 			upnpServiceFound = true;
 			// will start looking for 'eventSubURL' now
+		} else if (!upnpServiceFound && service_type_2_index >= 0) {
+			index_in_line += service_type_2_index;
+			debugPrintln("WANPPPConnection service found!");
+			upnpServiceFound = true;
+			// will start looking for 'eventSubURL' now
+		} else {
+			debugPrintln("WANPPPConnection was not found");
 		}
+		
 		if (upnpServiceFound && (index_in_line = line.indexOf("<eventSubURL>", index_in_line)) >= 0) {
 			String eventSubURLContent = getTagContent(line.substring(index_in_line), "eventSubURL");
 			deviceInfo->addPortMappingEventUrl = eventSubURLContent;
@@ -297,6 +308,8 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			debugPrint(eventSubURLContent);
 			debugPrintln("]");
 			return true;
+		} else {
+			debugPrintln("eventSubURL service was not found!");
 		}
 	}
 
