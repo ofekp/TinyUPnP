@@ -261,6 +261,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	boolean eventSubURLFound = false;
 	while (_wifiClient.available()) {
 		String line = _wifiClient.readStringUntil('\r');
+		int index_in_line = 0;
 		debugPrint(line);
 		if (!(upnpServiceFound && eventSubURLFound) && line.indexOf("<URLBase>") >= 0) {
 			// e.g. <URLBase>http://192.168.1.1:5432/</URLBase>
@@ -279,33 +280,33 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			debugPrint(String(port));
 			debugPrintln("]");
 		}
-	
-		if (!(upnpServiceFound && eventSubURLFound) && line.indexOf("<service>") >= 0) {
-			//debugPrintln("<service>");
-			debugPrint(line);
-			while (line.indexOf("</service>") < 0) {
-				line = _wifiClient.readStringUntil('\r');
-				if (line.indexOf(UPNP_SERVICE_TYPE) >= 0 || line.indexOf(UPNP_SERVICE_TYPE_2) >= 0) {
-					debugPrintln("WANPPPConnection service found!");
-					upnpServiceFound = true;
-				}
-				if (line.indexOf("<eventSubURL>") >= 0) {
-					String eventSubURLContent = getTagContent(line, "eventSubURL");
-					deviceInfo->addPortMappingEventUrl = eventSubURLContent;
-					eventSubURLFound = true;
-					
-					debugPrint("eventSubURL tag found! addPortMappingEventUrl [");
-					debugPrint(eventSubURLContent);
-					debugPrintln("]");
-				}
-			}
-			//debugPrintln("</service>");
+		
+		int service_type_index = line.indexOf(UPNP_SERVICE_TYPE);
+		int service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_2);
+		if (!upnpServiceFound && service_type_index >= 0) {
+			index_in_line += service_type_index;
+			debugPrintln("WANPPPConnection service found!");
+			upnpServiceFound = true;
+			// will start looking for 'eventSubURL' now
+		} else if (!upnpServiceFound && service_type_2_index >= 0) {
+			index_in_line += service_type_2_index;
+			debugPrintln("WANPPPConnection service found!");
+			upnpServiceFound = true;
+			// will start looking for 'eventSubURL' now
+		}
+		
+		if (upnpServiceFound && (index_in_line = line.indexOf("<eventSubURL>", index_in_line)) >= 0) {
+			String eventSubURLContent = getTagContent(line.substring(index_in_line), "eventSubURL");
+			deviceInfo->addPortMappingEventUrl = eventSubURLContent;
+			eventSubURLFound = true;
+
+			debugPrint("eventSubURL tag found! addPortMappingEventUrl [");
+			debugPrint(eventSubURLContent);
+			debugPrintln("]");
+			return true;
 		}
 	}
-	
-	if (upnpServiceFound && eventSubURLFound) {
-		return true;
-	}
+
 	return false;
 }
 
