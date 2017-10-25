@@ -217,6 +217,9 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo) {
 	deviceInfo->host = host;
 	deviceInfo->port = port;
 	deviceInfo->path = path;
+	// The following is the default and may be overridden if URLBase is specified
+	deviceInfo->baseUrlHost = host;
+	deviceInfo->baseUrlPort = port;
 	
 	debugPrintln(ipAddressToString(host));
 	debugPrintln(String(port));
@@ -238,6 +241,7 @@ boolean TinyUPnP::connectToIGD(gatewayInfo *deviceInfo) {
 boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	// make an HTTP request
 	_wifiClient.println("GET " + deviceInfo->path + " HTTP/1.1");
+	_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
 	_wifiClient.println("Connection: close");
 	_wifiClient.println("Content-Length: 0");
 	_wifiClient.println();
@@ -257,6 +261,8 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	boolean eventSubURLFound = false;
 	while (_wifiClient.available()) {
 		String line = _wifiClient.readStringUntil('\r');
+		int index_in_line = 0;
+		debugPrint(line);
 		if (!(upnpServiceFound && eventSubURLFound) && line.indexOf("<URLBase>") >= 0) {
 			// e.g. <URLBase>http://192.168.1.1:5432/</URLBase>
 			String baseUrl = getTagContent(line, "URLBase");
@@ -274,32 +280,33 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			debugPrint(String(port));
 			debugPrintln("]");
 		}
-	
-		if (!(upnpServiceFound && eventSubURLFound) && line.indexOf("<service>") >= 0) {
-			debugPrintln("<service>");
-			while (line.indexOf("</service>") < 0) {
-				line = _wifiClient.readStringUntil('\r');
-				if (line.indexOf(UPNP_SERVICE_TYPE) >= 0) {
-					debugPrintln("WANPPPConnection service found!");
-					upnpServiceFound = true;
-				}
-				if (line.indexOf("<eventSubURL>") >= 0) {
-					String eventSubURLContent = getTagContent(line, "eventSubURL");
-					deviceInfo->addPortMappingEventUrl = eventSubURLContent;
-					eventSubURLFound = true;
-					
-					debugPrint("eventSubURL tag found! addPortMappingEventUrl [");
-					debugPrint(eventSubURLContent);
-					debugPrintln("]");
-				}
-			}
-			debugPrintln("</service>");
+		
+		int service_type_index = line.indexOf(UPNP_SERVICE_TYPE);
+		int service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_2);
+		if (!upnpServiceFound && service_type_index >= 0) {
+			index_in_line += service_type_index;
+			debugPrintln("WANPPPConnection service found!");
+			upnpServiceFound = true;
+			// will start looking for 'eventSubURL' now
+		} else if (!upnpServiceFound && service_type_2_index >= 0) {
+			index_in_line += service_type_2_index;
+			debugPrintln("WANPPPConnection service found!");
+			upnpServiceFound = true;
+			// will start looking for 'eventSubURL' now
+		}
+		
+		if (upnpServiceFound && (index_in_line = line.indexOf("<eventSubURL>", index_in_line)) >= 0) {
+			String eventSubURLContent = getTagContent(line.substring(index_in_line), "eventSubURL");
+			deviceInfo->addPortMappingEventUrl = eventSubURLContent;
+			eventSubURLFound = true;
+
+			debugPrint("eventSubURL tag found! addPortMappingEventUrl [");
+			debugPrint(eventSubURLContent);
+			debugPrintln("]");
+			return true;
 		}
 	}
-	
-	if (upnpServiceFound && eventSubURLFound) {
-		return true;
-	}
+
 	return false;
 }
 
