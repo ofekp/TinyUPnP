@@ -279,8 +279,6 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			debugPrint("] and base port [");
 			debugPrint(String(port));
 			debugPrintln("]");
-		} else {
-			debugPrintln("could not find URLBase");
 		}
 		
 		int service_type_index = line.indexOf(UPNP_SERVICE_TYPE);
@@ -295,8 +293,6 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			debugPrintln("WANPPPConnection service found!");
 			upnpServiceFound = true;
 			// will start looking for 'eventSubURL' now
-		} else {
-			debugPrintln("WANPPPConnection was not found");
 		}
 		
 		if (upnpServiceFound && (index_in_line = line.indexOf("<eventSubURL>", index_in_line)) >= 0) {
@@ -308,8 +304,6 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			debugPrint(eventSubURLContent);
 			debugPrintln("]");
 			return true;
-		} else {
-			debugPrintln("eventSubURL service was not found!");
 		}
 	}
 
