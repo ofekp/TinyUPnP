@@ -259,11 +259,12 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	// read all the lines of the reply from server
 	boolean upnpServiceFound = false;
 	boolean eventSubURLFound = false;
+	boolean urlBaseFound = false;
 	while (_wifiClient.available()) {
 		String line = _wifiClient.readStringUntil('\r');
 		int index_in_line = 0;
 		debugPrint(line);
-		if (!(upnpServiceFound && eventSubURLFound) && line.indexOf("<URLBase>") >= 0) {
+		if (!urlBaseFound && line.indexOf("<URLBase>") >= 0) {
 			// e.g. <URLBase>http://192.168.1.1:5432/</URLBase>
 			String baseUrl = getTagContent(line, "URLBase");
 			if (baseUrl != NULL && baseUrl.length() > 0) {
@@ -280,6 +281,29 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 				debugPrint("] and base port [");
 				debugPrint(String(port));
 				debugPrintln("]");
+				urlBaseFound = true;
+			}
+		}
+		
+		if (!urlBaseFound && line.indexOf("<presentationURL>") >= 0) {
+			// e.g. <presentationURL>http://192.168.1.1:5432/    </presentationURL>
+			String baseUrl = getTagContent(line, "presentationURL");
+			baseUrl.trim();
+			if (baseUrl != NULL && baseUrl.length() > 0) {
+				IPAddress host = getHost(baseUrl);
+				int port = getPort(baseUrl);
+				deviceInfo->baseUrlHost = host;
+				deviceInfo->baseUrlPort = port;
+
+				debugPrint("presentationURL tag found [");
+				debugPrint(baseUrl);
+				debugPrintln("]");
+				debugPrint("Found IGD base host [");
+				debugPrint(ipAddressToString(host));
+				debugPrint("] and base port [");
+				debugPrint(String(port));
+				debugPrintln("]");
+				urlBaseFound = true;
 			}
 		}
 		
@@ -292,7 +316,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			// will start looking for 'eventSubURL' now
 		} else if (!upnpServiceFound && service_type_2_index >= 0) {
 			index_in_line += service_type_2_index;
-			debugPrintln("WANPPPConnection service found!");
+			debugPrintln("WANIPConnection service found!");
 			upnpServiceFound = true;
 			// will start looking for 'eventSubURL' now
 		}
@@ -316,6 +340,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 // will add the port mapping to the IGD
 // ruleProtocol - either "TCP" or "UDP"
 boolean TinyUPnP::addPortMappingEntry(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName, gatewayInfo *deviceInfo) {  
+	debugPrint("called addPortMappingEntry");
 	_wifiClient.println("POST " + deviceInfo->addPortMappingEventUrl + " HTTP/1.1");
 	_wifiClient.println("Connection: close");
 	_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
