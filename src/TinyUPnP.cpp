@@ -266,19 +266,21 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 		if (!(upnpServiceFound && eventSubURLFound) && line.indexOf("<URLBase>") >= 0) {
 			// e.g. <URLBase>http://192.168.1.1:5432/</URLBase>
 			String baseUrl = getTagContent(line, "URLBase");
-			IPAddress host = getHost(baseUrl);
-			int port = getPort(baseUrl);
-			deviceInfo->baseUrlHost = host;
-			deviceInfo->baseUrlPort = port;
-			
-			debugPrint("URLBase tag found [");
-			debugPrint(baseUrl);
-			debugPrintln("]");
-			debugPrint("Found IGD base host [");
-			debugPrint(ipAddressToString(host));
-			debugPrint("] and base port [");
-			debugPrint(String(port));
-			debugPrintln("]");
+			if (baseUrl != NULL && baseUrl.length() > 0) {
+				IPAddress host = getHost(baseUrl);
+				int port = getPort(baseUrl);
+				deviceInfo->baseUrlHost = host;
+				deviceInfo->baseUrlPort = port;
+
+				debugPrint("URLBase tag found [");
+				debugPrint(baseUrl);
+				debugPrintln("]");
+				debugPrint("Found IGD base host [");
+				debugPrint(ipAddressToString(host));
+				debugPrint("] and base port [");
+				debugPrint(String(port));
+				debugPrintln("]");
+			}
 		}
 		
 		int service_type_index = line.indexOf(UPNP_SERVICE_TYPE);
