@@ -19,6 +19,7 @@
 #define UPNP_SERVICE_TYPE "<serviceType>urn:schemas-upnp-org:service:WANPPPConnection:1</serviceType>"
 #define UPNP_SERVICE_TYPE_2 "<serviceType>urn:schemas-upnp-org:service:WANIPConnection:1</serviceType>"
 #define PORT_MAPPING_INVALID_INDEX "<errorDescription>SpecifiedArrayIndexInvalid</errorDescription>"
+#define PORT_MAPPING_INVALID_ACTION "<errorDescription>Invalid Action</errorDescription>"
 
 #define RULE_PROTOCOL_TCP "TCP"
 #define RULE_PROTOCOL_UDP "UDP"
