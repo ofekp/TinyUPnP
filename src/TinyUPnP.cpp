@@ -329,6 +329,13 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			debugPrint("eventSubURL tag found! addPortMappingEventUrl [");
 			debugPrint(eventSubURLContent);
 			debugPrintln("]");
+			
+			// clear buffer
+			while (_wifiClient.available()) {
+				String line = _wifiClient.readStringUntil('\r');
+				debugPrint(line);
+			}
+			
 			return true;
 		}
 	}
