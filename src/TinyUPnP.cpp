@@ -460,6 +460,9 @@ boolean TinyUPnP::printAllPortMappings() {
 			debugPrint(line);
 			if (line.indexOf(PORT_MAPPING_INVALID_INDEX) >= 0) {
 				reachedEnd = true;
+			} else if (line.indexOf(PORT_MAPPING_INVALID_ACTION) >= 0) {
+				debugPrint("Invalid action while reading port mappings")
+				reachedEnd = true;
 			} else if (line.indexOf("GetGenericPortMappingEntryResponse") >= 0) {
 				upnpRule *rule_ptr = new upnpRule();
 				rule_ptr->index = index;
