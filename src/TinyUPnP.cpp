@@ -351,7 +351,8 @@ boolean TinyUPnP::addPortMappingEntry(IPAddress ruleIP, int rulePort, String rul
 	_wifiClient.println("POST " + deviceInfo->addPortMappingEventUrl + " HTTP/1.1");
 	_wifiClient.println("Connection: close");
 	_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
-	_wifiClient.println("SOAPAction: \"urn:schemas-upnp-org:service:WANPPPConnection:1#AddPortMapping\"");
+	// might need either WANIPConnection:1 or WANPPPConnection:1 based on what was found earlier
+	_wifiClient.println("SOAPAction: \"urn:schemas-upnp-org:service:WANIPConnection:1#AddPortMapping\"");
 	String body = "<?xml version=\"1.0\"?>\r\n"
 		"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\r\n"
 		"<s:Body>\r\n"
