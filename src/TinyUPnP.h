@@ -16,13 +16,16 @@
 #define UPNP_SSDP_PORT 1900
 #define TCP_CONNECTION_TIMEOUT_MS 6000
 #define INTERNET_GATEWAY_DEVICE "urn:schemas-upnp-org:device:InternetGatewayDevice:1"
-#define UPNP_SERVICE_TYPE "<serviceType>urn:schemas-upnp-org:service:WANPPPConnection:1</serviceType>"
-#define UPNP_SERVICE_TYPE_2 "<serviceType>urn:schemas-upnp-org:service:WANIPConnection:1</serviceType>"
 #define PORT_MAPPING_INVALID_INDEX "<errorDescription>SpecifiedArrayIndexInvalid</errorDescription>"
 #define PORT_MAPPING_INVALID_ACTION "<errorDescription>Invalid Action</errorDescription>"
 
 #define RULE_PROTOCOL_TCP "TCP"
 #define RULE_PROTOCOL_UDP "UDP"
+
+const String UPNP_SERVICE_TYPE_1 = "urn:schemas-upnp-org:service:WANPPPConnection:1";
+const String UPNP_SERVICE_TYPE_2 = "urn:schemas-upnp-org:service:WANIPConnection:1";
+const String UPNP_SERVICE_TYPE_TAG_START = "<serviceType>";
+const String UPNP_SERVICE_TYPE_TAG_END = "</serviceType>";
 
 typedef struct _gatewayInfo {
 	IPAddress host;
@@ -31,6 +34,7 @@ typedef struct _gatewayInfo {
 	IPAddress baseUrlHost;
 	String baseUrlPort;
 	String addPortMappingEventUrl;
+	String serviceTypeName;  // i.e "WANPPPConnection:1" or "WANIPConnection:1"
 } gatewayInfo;
 
 typedef struct _upnpRule {
