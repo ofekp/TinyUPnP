@@ -28,12 +28,14 @@ const String UPNP_SERVICE_TYPE_TAG_START = "<serviceType>";
 const String UPNP_SERVICE_TYPE_TAG_END = "</serviceType>";
 
 typedef struct _gatewayInfo {
+	// router info
 	IPAddress host;
-	int port;
-	String path;
-	IPAddress baseUrlHost;
-	String baseUrlPort;
-	String addPortMappingEventUrl;
+	int port;  // this port is used when getting router capabilities and xml files
+	String path; // this is the path that is used to retrieve router information from xml files
+	
+	// info for actions
+	int actionPort;  // this port is used when performing SOAP API actions
+	String actionPath;  // this is the path used to perform SOAP API actions
 	String serviceTypeName;  // i.e "WANPPPConnection:1" or "WANIPConnection:1"
 } gatewayInfo;
 
@@ -63,7 +65,7 @@ class TinyUPnP
 		boolean connectUDP();
 		void broadcastMSearch();
 		boolean waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo);
-		boolean connectToIGD(gatewayInfo *deviceInfo);
+		boolean connectToIGD(IPAddress host, int port);
 		boolean getIGDEventURLs(gatewayInfo *deviceInfo);
 		boolean addPortMappingEntry(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName, gatewayInfo *deviceInfo);
 		boolean printAllRules(gatewayInfo *deviceInfo);
