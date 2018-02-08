@@ -364,7 +364,7 @@ boolean TinyUPnP::addPortMappingEntry(IPAddress ruleIP, int rulePort, String rul
 	_wifiClient.println();
 	_wifiClient.flush();
 	
-	debugPrintln("Content-Length was: " + String(body.length()))
+	debugPrintln("Content-Length was: " + String(body.length()));
 	
 	debugPrintln(body);
   
