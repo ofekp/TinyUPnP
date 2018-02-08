@@ -81,6 +81,7 @@ boolean TinyUPnP::addPortMapping(IPAddress ruleIP, int rulePort, String ruleProt
 		delay(1000);
 	}
 	
+	debugPrintln("port [" + String(_gwInfo.port) + "] actionPort [" + _gwInfo.actionPort + "]");
 	if (_gwInfo.port != _gwInfo.actionPort) {
 		// in this case we need to connect to a different port
 		debugPrintln("Connection port changed, disconneting from IGD");
@@ -248,7 +249,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	// make an HTTP request
 	_wifiClient.println("GET " + deviceInfo->path + " HTTP/1.1");
 	_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
-	_wifiClient.println("Connection: close");
+	//_wifiClient.println("Connection: close");
 	_wifiClient.println("Content-Length: 0");
 	_wifiClient.println();
 	
@@ -335,8 +336,11 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 // ruleProtocol - either "TCP" or "UDP"
 boolean TinyUPnP::addPortMappingEntry(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName, gatewayInfo *deviceInfo) {  
 	debugPrintln("called addPortMappingEntry");
+	debugPrintln("deviceInfo->actionPath [" + deviceInfo->actionPath + "]");
+	debugPrintln("deviceInfo->serviceTypeName [" + deviceInfo->serviceTypeName + "]");
+	
 	_wifiClient.println("POST " + deviceInfo->actionPath + " HTTP/1.1");
-	_wifiClient.println("Connection: close");
+	//_wifiClient.println("Connection: close");
 	_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
 	_wifiClient.println("SOAPAction: \"" + deviceInfo->serviceTypeName + "#AddPortMapping\"");
 	String body = "<?xml version=\"1.0\"?>\r\n"
@@ -358,6 +362,9 @@ boolean TinyUPnP::addPortMappingEntry(IPAddress ruleIP, int rulePort, String rul
 	_wifiClient.println();
 	_wifiClient.println(body);
 	_wifiClient.println();
+	_wifiClient.flush();
+	
+	debugPrintln("Content-Length was: " + String(body.length()))
 	
 	debugPrintln(body);
   
