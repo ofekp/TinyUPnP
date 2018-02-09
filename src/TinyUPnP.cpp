@@ -343,21 +343,21 @@ boolean TinyUPnP::addPortMappingEntry(IPAddress ruleIP, int rulePort, String rul
 	//_wifiClient.println("Connection: close");
 	_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
 	_wifiClient.println("SOAPAction: \"" + deviceInfo->serviceTypeName + "#AddPortMapping\"");
-	String body = "<?xml version=\"1.0\"?>\r\n"
-		"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\r\n"
-		"<s:Body>\r\n"
-		"<u:AddPortMapping xmlns:u=\"" + deviceInfo->serviceTypeName + "\">\r\n"
-		"  <NewRemoteHost></NewRemoteHost>\r\n"
-		"  <NewExternalPort>" + String(rulePort) + "</NewExternalPort>\r\n"
-		"  <NewProtocol>" + ruleProtocol + "</NewProtocol>\r\n"
-		"  <NewInternalPort>" + String(rulePort) + "</NewInternalPort>\r\n"
-		"  <NewInternalClient>" + ipAddressToString(ruleIP) + "</NewInternalClient>\r\n"
-		"  <NewEnabled>1</NewEnabled>\r\n"
-		"  <NewPortMappingDescription>" + ruleFriendlyName + "</NewPortMappingDescription>\r\n"
-		"  <NewLeaseDuration>" + String(ruleLeaseDuration) + "</NewLeaseDuration>\r\n"
-		"</u:AddPortMapping>\r\n"
-		"</s:Body>\r\n"
-		"</s:Envelope>\r\n";
+	String body = "<?xml version=\"1.0\"?>"
+		"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
+		"<s:Body>"
+		"<u:AddPortMapping xmlns:u=\"" + deviceInfo->serviceTypeName + "\">"
+		"  <NewRemoteHost></NewRemoteHost>"
+		"  <NewExternalPort>" + String(rulePort) + "</NewExternalPort>"
+		"  <NewProtocol>" + ruleProtocol + "</NewProtocol>"
+		"  <NewInternalPort>" + String(rulePort) + "</NewInternalPort>"
+		"  <NewInternalClient>" + ipAddressToString(ruleIP) + "</NewInternalClient>"
+		"  <NewEnabled>1</NewEnabled>"
+		"  <NewPortMappingDescription>" + ruleFriendlyName + "</NewPortMappingDescription>"
+		"  <NewLeaseDuration>" + String(ruleLeaseDuration) + "</NewLeaseDuration>"
+		"</u:AddPortMapping>"
+		"</s:Body>"
+		"</s:Envelope>";
 	_wifiClient.println("Content-Length: " + String(body.length()));
 	_wifiClient.println();
 	_wifiClient.println(body);
@@ -429,14 +429,14 @@ boolean TinyUPnP::printAllPortMappings() {
 		_wifiClient.println("Connection: keep-alive");
 		_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
 		_wifiClient.println("SOAPAction: \"" + _gwInfo.serviceTypeName + "#GetGenericPortMappingEntry\"");
-		String body = "<?xml version=\"1.0\"?>\r\n"
-			"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\r\n"
-			"<s:Body>\r\n"
-			"<u:GetGenericPortMappingEntry xmlns:u=\"" + _gwInfo.serviceTypeName + "\">\r\n"
-			"  <NewPortMappingIndex>" + String(index) + "</NewPortMappingIndex>\r\n"
-			"</u:GetGenericPortMappingEntry>\r\n"
-			"</s:Body>\r\n"
-			"</s:Envelope>\r\n";
+		String body = "<?xml version=\"1.0\"?>"
+			"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
+			"<s:Body>"
+			"<u:GetGenericPortMappingEntry xmlns:u=\"" + _gwInfo.serviceTypeName + "\">"
+			"  <NewPortMappingIndex>" + String(index) + "</NewPortMappingIndex>"
+			"</u:GetGenericPortMappingEntry>"
+			"</s:Body>"
+			"</s:Envelope>";
 		_wifiClient.println("Content-Length: " + String(body.length()));
 		_wifiClient.println();
 		_wifiClient.println(body);
