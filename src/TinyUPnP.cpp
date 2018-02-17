@@ -341,7 +341,10 @@ boolean TinyUPnP::addPortMappingEntry(IPAddress ruleIP, int rulePort, String rul
 	
 	_wifiClient.println("POST " + deviceInfo->actionPath + " HTTP/1.1");
 	//_wifiClient.println("Connection: close");
-	_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
+	//_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
+	_wifiClient.println("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort));
+	_wifiClient.println("Accept: */*");
+	_wifiClient.println("Content-Type: application/x-www-form-urlencoded");
 	_wifiClient.println("SOAPAction: \"" + deviceInfo->serviceTypeName + "#AddPortMapping\"");
 	String body = "<?xml version=\"1.0\"?>"
 		"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
@@ -362,8 +365,6 @@ boolean TinyUPnP::addPortMappingEntry(IPAddress ruleIP, int rulePort, String rul
 	_wifiClient.println();
 	_wifiClient.println(body);
 	_wifiClient.println();
-	_wifiClient.println();
-	_wifiClient.flush();
 	
 	debugPrintln("Content-Length was: " + String(body.length()));
 	
