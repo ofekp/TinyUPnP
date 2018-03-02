@@ -341,23 +341,23 @@ boolean TinyUPnP::addPortMappingEntry(IPAddress ruleIP, int rulePort, String rul
 	
 	_wifiClient.println("POST " + deviceInfo->actionPath + " HTTP/1.1");
 	//_wifiClient.println("Connection: close");
-	//_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
-	_wifiClient.println("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort));
-	_wifiClient.println("Accept: */*");
-	_wifiClient.println("Content-Type: application/x-www-form-urlencoded");
+	_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
+	//_wifiClient.println("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort));
+	//_wifiClient.println("Accept: */*");
+	//_wifiClient.println("Content-Type: application/x-www-form-urlencoded");
 	_wifiClient.println("SOAPAction: \"" + deviceInfo->serviceTypeName + "#AddPortMapping\"");
 	String body = "<?xml version=\"1.0\"?>"
 		"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
 		"<s:Body>"
 		"<u:AddPortMapping xmlns:u=\"" + deviceInfo->serviceTypeName + "\">"
-		"  <NewRemoteHost></NewRemoteHost>"
-		"  <NewExternalPort>" + String(rulePort) + "</NewExternalPort>"
-		"  <NewProtocol>" + ruleProtocol + "</NewProtocol>"
-		"  <NewInternalPort>" + String(rulePort) + "</NewInternalPort>"
-		"  <NewInternalClient>" + ipAddressToString(ruleIP) + "</NewInternalClient>"
-		"  <NewEnabled>1</NewEnabled>"
-		"  <NewPortMappingDescription>" + ruleFriendlyName + "</NewPortMappingDescription>"
-		"  <NewLeaseDuration>" + String(ruleLeaseDuration) + "</NewLeaseDuration>"
+		"<NewRemoteHost></NewRemoteHost>"
+		"<NewExternalPort>" + String(rulePort) + "</NewExternalPort>"
+		"<NewProtocol>" + ruleProtocol + "</NewProtocol>"
+		"<NewInternalPort>" + String(rulePort) + "</NewInternalPort>"
+		"<NewInternalClient>" + ipAddressToString(ruleIP) + "</NewInternalClient>"
+		"<NewEnabled>1</NewEnabled>"
+		"<NewPortMappingDescription>" + ruleFriendlyName + "</NewPortMappingDescription>"
+		"<NewLeaseDuration>" + String(ruleLeaseDuration) + "</NewLeaseDuration>"
 		"</u:AddPortMapping>"
 		"</s:Body>"
 		"</s:Envelope>";
