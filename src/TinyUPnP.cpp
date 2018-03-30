@@ -461,6 +461,9 @@ boolean TinyUPnP::printAllPortMappings() {
 			} else if (line.indexOf(PORT_MAPPING_INVALID_ACTION) >= 0) {
 				debugPrint("Invalid action while reading port mappings");
 				reachedEnd = true;
+			} else if (line.indexOf("HTTP/1.1 500 ") >= 0) {
+				debugPrint("Internal server error, likely because we have shown all the mappings");
+				reachedEnd = true;
 			} else if (line.indexOf("GetGenericPortMappingEntryResponse") >= 0) {
 				upnpRule *rule_ptr = new upnpRule();
 				rule_ptr->index = index;
