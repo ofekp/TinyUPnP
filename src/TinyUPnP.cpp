@@ -265,7 +265,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	
 	// read all the lines of the reply from server
 	boolean upnpServiceFound = false;
-	boolean eventSubURLFound = false;
+	boolean controlURLFound = false;
 	boolean urlBaseFound = false;
 	while (_wifiClient.available()) {
 		String line = _wifiClient.readStringUntil('\r');
@@ -273,7 +273,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 		debugPrint(line);
 		if (!urlBaseFound && line.indexOf("<URLBase>") >= 0) {
 			// e.g. <URLBase>http://192.168.1.1:5432/</URLBase>
-			// Note: assuming URL path will only be found in a specific action under the 'eventSubURL' xml tag
+			// Note: assuming URL path will only be found in a specific action under the 'controlURL' xml tag
 			String baseUrl = getTagContent(line, "URLBase");
 			if (baseUrl != NULL && baseUrl.length() > 0) {
 				baseUrl.trim();
@@ -300,22 +300,22 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			debugPrintln(UPNP_SERVICE_TYPE_1 + " service found!");
 			upnpServiceFound = true;
 			deviceInfo->serviceTypeName = UPNP_SERVICE_TYPE_1;
-			// will start looking for 'eventSubURL' now
+			// will start looking for 'controlURL' now
 		} else if (!upnpServiceFound && service_type_2_index >= 0) {
 			index_in_line += service_type_2_index;
 			debugPrintln(UPNP_SERVICE_TYPE_2 + " service found!");
 			upnpServiceFound = true;
 			deviceInfo->serviceTypeName = UPNP_SERVICE_TYPE_2;
-			// will start looking for 'eventSubURL' now
+			// will start looking for 'controlURL' now
 		}
 		
-		if (upnpServiceFound && (index_in_line = line.indexOf("<eventSubURL>", index_in_line)) >= 0) {
-			String eventSubURLContent = getTagContent(line.substring(index_in_line), "eventSubURL");
-			deviceInfo->actionPath = eventSubURLContent;
-			eventSubURLFound = true;
+		if (upnpServiceFound && (index_in_line = line.indexOf("<controlURL>", index_in_line)) >= 0) {
+			String controlURLContent = getTagContent(line.substring(index_in_line), "controlURL");
+			deviceInfo->actionPath = controlURLContent;
+			controlURLFound = true;
 
-			debugPrint("eventSubURL tag found! setting actionPath to [");
-			debugPrint(eventSubURLContent);
+			debugPrint("controlURL tag found! setting actionPath to [");
+			debugPrint(controlURLContent);
 			debugPrintln("]");
 			
 			// clear buffer
