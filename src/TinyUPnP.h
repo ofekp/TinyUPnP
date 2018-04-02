@@ -16,20 +16,27 @@
 #define UPNP_SSDP_PORT 1900
 #define TCP_CONNECTION_TIMEOUT_MS 6000
 #define INTERNET_GATEWAY_DEVICE "urn:schemas-upnp-org:device:InternetGatewayDevice:1"
-#define UPNP_SERVICE_TYPE "<serviceType>urn:schemas-upnp-org:service:WANPPPConnection:1</serviceType>"
-#define UPNP_SERVICE_TYPE_2 "<serviceType>urn:schemas-upnp-org:service:WANIPConnection:1</serviceType>"
 #define PORT_MAPPING_INVALID_INDEX "<errorDescription>SpecifiedArrayIndexInvalid</errorDescription>"
+#define PORT_MAPPING_INVALID_ACTION "<errorDescription>Invalid Action</errorDescription>"
 
 #define RULE_PROTOCOL_TCP "TCP"
 #define RULE_PROTOCOL_UDP "UDP"
 
+const String UPNP_SERVICE_TYPE_1 = "urn:schemas-upnp-org:service:WANPPPConnection:1";
+const String UPNP_SERVICE_TYPE_2 = "urn:schemas-upnp-org:service:WANIPConnection:1";
+const String UPNP_SERVICE_TYPE_TAG_START = "<serviceType>";
+const String UPNP_SERVICE_TYPE_TAG_END = "</serviceType>";
+
 typedef struct _gatewayInfo {
+	// router info
 	IPAddress host;
-	int port;
-	String path;
-	IPAddress baseUrlHost;
-	String baseUrlPort;
-	String addPortMappingEventUrl;
+	int port;  // this port is used when getting router capabilities and xml files
+	String path; // this is the path that is used to retrieve router information from xml files
+	
+	// info for actions
+	int actionPort;  // this port is used when performing SOAP API actions
+	String actionPath;  // this is the path used to perform SOAP API actions
+	String serviceTypeName;  // i.e "WANPPPConnection:1" or "WANIPConnection:1"
 } gatewayInfo;
 
 typedef struct _upnpRule {
@@ -58,7 +65,7 @@ class TinyUPnP
 		boolean connectUDP();
 		void broadcastMSearch();
 		boolean waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo);
-		boolean connectToIGD(gatewayInfo *deviceInfo);
+		boolean connectToIGD(IPAddress host, int port);
 		boolean getIGDEventURLs(gatewayInfo *deviceInfo);
 		boolean addPortMappingEntry(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName, gatewayInfo *deviceInfo);
 		boolean printAllRules(gatewayInfo *deviceInfo);

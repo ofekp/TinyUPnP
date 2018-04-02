@@ -63,7 +63,7 @@ boolean TinyUPnP::addPortMapping(IPAddress ruleIP, int rulePort, String ruleProt
 	_udpClient.stop();
 	
 	// connect to IGD (TCP connection)
-	while (!connectToIGD(&_gwInfo)) {
+	while (!connectToIGD(_gwInfo.host, _gwInfo.port)) {
 		if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
 			debugPrint("Timeout expired while trying to connect to the IGD");
 			_wifiClient.stop();
@@ -81,9 +81,16 @@ boolean TinyUPnP::addPortMapping(IPAddress ruleIP, int rulePort, String ruleProt
 		delay(1000);
 	}
 	
+	debugPrintln("port [" + String(_gwInfo.port) + "] actionPort [" + _gwInfo.actionPort + "]");
+	if (_gwInfo.port != _gwInfo.actionPort) {
+		// in this case we need to connect to a different port
+		debugPrintln("Connection port changed, disconneting from IGD");
+		_wifiClient.stop();
+	}
+	
 	// connect to IGD (TCP connection) again, if needed, in case we got disconnected after the previous query
 	if (!_wifiClient.connected()) {
-		while (!connectToIGD(&_gwInfo)) {
+		while (!connectToIGD(_gwInfo.host, _gwInfo.actionPort)) {
 			if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
 				debugPrint("Timeout expired while trying to connect to the IGD");
 				_wifiClient.stop();
@@ -215,11 +222,10 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo) {
 	String path = getPath(location);
 	
 	deviceInfo->host = host;
-	deviceInfo->port = port;
+	deviceInfo->port = port;	
 	deviceInfo->path = path;
-	// The following is the default and may be overridden if URLBase is specified
-	deviceInfo->baseUrlHost = host;
-	deviceInfo->baseUrlPort = port;
+	// the following is the default and may be overridden if URLBase tag is specified
+	deviceInfo->actionPort = port;
 	
 	debugPrintln(ipAddressToString(host));
 	debugPrintln(String(port));
@@ -229,8 +235,9 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo) {
 }
 
 // a singly trial to connect to the IGD (with TCP)
-boolean TinyUPnP::connectToIGD(gatewayInfo *deviceInfo) {
-	if (_wifiClient.connect(deviceInfo->host, deviceInfo->port)) {
+boolean TinyUPnP::connectToIGD(IPAddress host, int port) {
+	debugPrintln("Connecting to IGD with host [" + ipAddressToString(host) + "] port [" + port + "]");
+	if (_wifiClient.connect(host, port)) {
 		debugPrintln("Connected to IGD");
 		return true;
 	}
@@ -242,7 +249,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	// make an HTTP request
 	_wifiClient.println("GET " + deviceInfo->path + " HTTP/1.1");
 	_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
-	_wifiClient.println("Connection: close");
+	//_wifiClient.println("Connection: close");
 	_wifiClient.println("Content-Length: 0");
 	_wifiClient.println();
 	
@@ -258,51 +265,65 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	
 	// read all the lines of the reply from server
 	boolean upnpServiceFound = false;
-	boolean eventSubURLFound = false;
+	boolean controlURLFound = false;
+	boolean urlBaseFound = false;
 	while (_wifiClient.available()) {
 		String line = _wifiClient.readStringUntil('\r');
 		int index_in_line = 0;
 		debugPrint(line);
-		if (!(upnpServiceFound && eventSubURLFound) && line.indexOf("<URLBase>") >= 0) {
+		if (!urlBaseFound && line.indexOf("<URLBase>") >= 0) {
 			// e.g. <URLBase>http://192.168.1.1:5432/</URLBase>
+			// Note: assuming URL path will only be found in a specific action under the 'controlURL' xml tag
 			String baseUrl = getTagContent(line, "URLBase");
-			IPAddress host = getHost(baseUrl);
-			int port = getPort(baseUrl);
-			deviceInfo->baseUrlHost = host;
-			deviceInfo->baseUrlPort = port;
-			
-			debugPrint("URLBase tag found [");
-			debugPrint(baseUrl);
-			debugPrintln("]");
-			debugPrint("Found IGD base host [");
-			debugPrint(ipAddressToString(host));
-			debugPrint("] and base port [");
-			debugPrint(String(port));
-			debugPrintln("]");
+			if (baseUrl != NULL && baseUrl.length() > 0) {
+				baseUrl.trim();
+				IPAddress host = getHost(baseUrl);  // this is ignored, assuming router host IP will not change
+				int port = getPort(baseUrl);
+				deviceInfo->actionPort = port;
+
+				debugPrint("URLBase tag found [");
+				debugPrint(baseUrl);
+				debugPrintln("]");
+				debugPrint("Translated to base host [");
+				debugPrint(ipAddressToString(host));
+				debugPrint("] and base port [");
+				debugPrint(String(port));
+				debugPrintln("]");
+				urlBaseFound = true;
+			}
 		}
 		
-		int service_type_index = line.indexOf(UPNP_SERVICE_TYPE);
-		int service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_2);
-		if (!upnpServiceFound && service_type_index >= 0) {
-			index_in_line += service_type_index;
-			debugPrintln("WANPPPConnection service found!");
+		int service_type_1_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_1 + UPNP_SERVICE_TYPE_TAG_END);
+		int service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_2 + UPNP_SERVICE_TYPE_TAG_END);
+		if (!upnpServiceFound && service_type_1_index >= 0) {
+			index_in_line += service_type_1_index;
+			debugPrintln(UPNP_SERVICE_TYPE_1 + " service found!");
 			upnpServiceFound = true;
-			// will start looking for 'eventSubURL' now
+			deviceInfo->serviceTypeName = UPNP_SERVICE_TYPE_1;
+			// will start looking for 'controlURL' now
 		} else if (!upnpServiceFound && service_type_2_index >= 0) {
 			index_in_line += service_type_2_index;
-			debugPrintln("WANPPPConnection service found!");
+			debugPrintln(UPNP_SERVICE_TYPE_2 + " service found!");
 			upnpServiceFound = true;
-			// will start looking for 'eventSubURL' now
+			deviceInfo->serviceTypeName = UPNP_SERVICE_TYPE_2;
+			// will start looking for 'controlURL' now
 		}
 		
-		if (upnpServiceFound && (index_in_line = line.indexOf("<eventSubURL>", index_in_line)) >= 0) {
-			String eventSubURLContent = getTagContent(line.substring(index_in_line), "eventSubURL");
-			deviceInfo->addPortMappingEventUrl = eventSubURLContent;
-			eventSubURLFound = true;
+		if (upnpServiceFound && (index_in_line = line.indexOf("<controlURL>", index_in_line)) >= 0) {
+			String controlURLContent = getTagContent(line.substring(index_in_line), "controlURL");
+			deviceInfo->actionPath = controlURLContent;
+			controlURLFound = true;
 
-			debugPrint("eventSubURL tag found! addPortMappingEventUrl [");
-			debugPrint(eventSubURLContent);
+			debugPrint("controlURL tag found! setting actionPath to [");
+			debugPrint(controlURLContent);
 			debugPrintln("]");
+			
+			// clear buffer
+			while (_wifiClient.available()) {
+				String line = _wifiClient.readStringUntil('\r');
+				debugPrint(line);
+			}
+			
 			return true;
 		}
 	}
@@ -314,29 +335,40 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 // will add the port mapping to the IGD
 // ruleProtocol - either "TCP" or "UDP"
 boolean TinyUPnP::addPortMappingEntry(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName, gatewayInfo *deviceInfo) {  
-	_wifiClient.println("POST " + deviceInfo->addPortMappingEventUrl + " HTTP/1.1");
-	_wifiClient.println("Connection: close");
+	debugPrintln("called addPortMappingEntry");
+	debugPrintln("deviceInfo->actionPath [" + deviceInfo->actionPath + "]");
+	debugPrintln("deviceInfo->serviceTypeName [" + deviceInfo->serviceTypeName + "]");
+	
+	_wifiClient.println("POST " + deviceInfo->actionPath + " HTTP/1.1");
+	//_wifiClient.println("Connection: close");
 	_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
-	_wifiClient.println("SOAPAction: \"urn:schemas-upnp-org:service:WANPPPConnection:1#AddPortMapping\"");
-	String body = "<?xml version=\"1.0\"?>\r\n"
-		"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\r\n"
-		"<s:Body>\r\n"
-		"<u:AddPortMapping xmlns:u=\"urn:schemas-upnp-org:service:WANPPPConnection:1\">\r\n"
-		"  <NewRemoteHost></NewRemoteHost>\r\n"
-		"  <NewExternalPort>" + String(rulePort) + "</NewExternalPort>\r\n"
-		"  <NewProtocol>" + ruleProtocol + "</NewProtocol>\r\n"
-		"  <NewInternalPort>" + String(rulePort) + "</NewInternalPort>\r\n"
-		"  <NewInternalClient>" + ipAddressToString(ruleIP) + "</NewInternalClient>\r\n"
-		"  <NewEnabled>1</NewEnabled>\r\n"
-		"  <NewPortMappingDescription>" + ruleFriendlyName + "</NewPortMappingDescription>\r\n"
-		"  <NewLeaseDuration>" + String(ruleLeaseDuration) + "</NewLeaseDuration>\r\n"
-		"</u:AddPortMapping>\r\n"
-		"</s:Body>\r\n"
-		"</s:Envelope>\r\n";
+	//_wifiClient.println("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort));
+	//_wifiClient.println("Accept: */*");
+	//_wifiClient.println("Content-Type: application/x-www-form-urlencoded");
+	_wifiClient.println("SOAPAction: \"" + deviceInfo->serviceTypeName + "#AddPortMapping\"");
+	String body = "<?xml version=\"1.0\"?>"
+		"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
+		"<s:Body>"
+		"<u:AddPortMapping xmlns:u=\"" + deviceInfo->serviceTypeName + "\">"
+		"<NewRemoteHost></NewRemoteHost>"
+		"<NewExternalPort>" + String(rulePort) + "</NewExternalPort>"
+		"<NewProtocol>" + ruleProtocol + "</NewProtocol>"
+		"<NewInternalPort>" + String(rulePort) + "</NewInternalPort>"
+		"<NewInternalClient>" + ipAddressToString(ruleIP) + "</NewInternalClient>"
+		"<NewEnabled>1</NewEnabled>"
+		"<NewPortMappingDescription>" + ruleFriendlyName + "</NewPortMappingDescription>"
+		"<NewLeaseDuration>" + String(ruleLeaseDuration) + "</NewLeaseDuration>"
+		"</u:AddPortMapping>"
+		"</s:Body>"
+		"</s:Envelope>";
 	_wifiClient.println("Content-Length: " + String(body.length()));
 	_wifiClient.println();
 	_wifiClient.println(body);
 	_wifiClient.println();
+	
+	debugPrintln("Content-Length was: " + String(body.length()));
+	
+	debugPrintln(body);
   
 	unsigned long timeout = millis();
 	while (_wifiClient.available() == 0) {
@@ -354,7 +386,7 @@ boolean TinyUPnP::addPortMappingEntry(IPAddress ruleIP, int rulePort, String rul
 		if (line.indexOf("errorCode") >= 0) {
 			isSuccess = false;
 		}
-		debugPrint(line);
+		debugPrintln(line);
 	}
 	debugPrintln("");  // \n\r\n
 
@@ -381,7 +413,7 @@ boolean TinyUPnP::printAllPortMappings() {
 	while (!reachedEnd) {
 		// connect to IGD (TCP connection) again, if needed, in case we got disconnected after the previous query
 		if (!_wifiClient.connected()) {
-			while (!connectToIGD(&_gwInfo)) {
+			while (!connectToIGD(_gwInfo.host, _gwInfo.actionPort)) {
 				if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
 					debugPrint("Timeout expired while trying to connect to the IGD");
 					_wifiClient.stop();
@@ -395,18 +427,18 @@ boolean TinyUPnP::printAllPortMappings() {
 		debugPrint(String(index));
 		debugPrintln("]");
 		
-		_wifiClient.println("POST " + _gwInfo.addPortMappingEventUrl + " HTTP/1.1");
+		_wifiClient.println("POST " + _gwInfo.actionPath + " HTTP/1.1");
 		_wifiClient.println("Connection: keep-alive");
 		_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
-		_wifiClient.println("SOAPAction: \"urn:schemas-upnp-org:service:WANPPPConnection:1#GetGenericPortMappingEntry\"");
-		String body = "<?xml version=\"1.0\"?>\r\n"
-			"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\r\n"
-			"<s:Body>\r\n"
-			"<u:GetGenericPortMappingEntry xmlns:u=\"urn:schemas-upnp-org:service:WANPPPConnection:1\">\r\n"
-			"  <NewPortMappingIndex>" + String(index) + "</NewPortMappingIndex>\r\n"
-			"</u:GetGenericPortMappingEntry>\r\n"
-			"</s:Body>\r\n"
-			"</s:Envelope>\r\n";
+		_wifiClient.println("SOAPAction: \"" + _gwInfo.serviceTypeName + "#GetGenericPortMappingEntry\"");
+		String body = "<?xml version=\"1.0\"?>"
+			"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
+			"<s:Body>"
+			"<u:GetGenericPortMappingEntry xmlns:u=\"" + _gwInfo.serviceTypeName + "\">"
+			"  <NewPortMappingIndex>" + String(index) + "</NewPortMappingIndex>"
+			"</u:GetGenericPortMappingEntry>"
+			"</s:Body>"
+			"</s:Envelope>";
 		_wifiClient.println("Content-Length: " + String(body.length()));
 		_wifiClient.println();
 		_wifiClient.println(body);
@@ -425,6 +457,12 @@ boolean TinyUPnP::printAllPortMappings() {
 			String line = _wifiClient.readStringUntil('\r');
 			debugPrint(line);
 			if (line.indexOf(PORT_MAPPING_INVALID_INDEX) >= 0) {
+				reachedEnd = true;
+			} else if (line.indexOf(PORT_MAPPING_INVALID_ACTION) >= 0) {
+				debugPrint("Invalid action while reading port mappings");
+				reachedEnd = true;
+			} else if (line.indexOf("HTTP/1.1 500 ") >= 0) {
+				debugPrint("Internal server error, likely because we have shown all the mappings");
 				reachedEnd = true;
 			} else if (line.indexOf("GetGenericPortMappingEntryResponse") >= 0) {
 				upnpRule *rule_ptr = new upnpRule();
