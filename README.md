@@ -30,10 +30,6 @@ if ((millis() - lastUpdateTime) > (long) (0.8D * (double) (LEASE_DURATION * 1000
 ```
 I only checked it with my D-Link router.
 
-Special thanks
---
-@ajwtech - for contributing to the package by noting the need to use `constrolURL` instead of `eventSubURL`
-
 To anyone interested in how the library works:
 --
 1. It sends an M_SEARCH message to UPnP UDP multicast address.
@@ -80,3 +76,7 @@ I use this https://github.com/ayushsharma82/EasyDDNS
 Beer
 ==
 If you like what I got, support me by buying me a :beer: [Beer](https://www.paypal.me/ofekpearl/5usd) and cheers to you!
+
+Special thanks
+--
+[@ajwtech](https://github.com/ajwtech) - for contributing to the package by noting the need to use `constrolURL` instead of `eventSubURL`
