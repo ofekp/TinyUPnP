@@ -30,6 +30,10 @@ if ((millis() - lastUpdateTime) > (long) (0.8D * (double) (LEASE_DURATION * 1000
 ```
 I only checked it with my D-Link router.
 
+Special thanks
+--
+@ajwtech - for contributing to the package by noting the need to use `constrolURL` instead of `eventSubURL`
+
 To anyone interested in how the library works:
 --
 1. It sends an M_SEARCH message to UPnP UDP multicast address.
