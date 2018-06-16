@@ -102,6 +102,7 @@ void handleNotFound() {
 }
 
 void setup(void) {
+  Serial.begin(115200);
   pinMode (led, OUTPUT);
   digitalWrite (led, 0);
   Serial.println("Starting...");

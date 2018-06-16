@@ -111,7 +111,7 @@ boolean TinyUPnP::addPortMapping() {
 	while (!verifyPortMapping(&_gwInfo)) {
 		// connect to IGD (TCP connection) again, if needed, in case we got disconnected after the previous query
 		if (!_wifiClient.connected()) {
-			while (!connectToIGD(&_gwInfo)) {
+			while (!connectToIGD(_gwInfo.host, _gwInfo.actionPort)) {
 				if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
 					debugPrintln("Timeout expired while trying to connect to the IGD");
 					_wifiClient.stop();
@@ -155,7 +155,7 @@ boolean TinyUPnP::updatePortMapping(unsigned long intervalMs) {
 		// connect to IGD (TCP connection) again, if needed, in case we got disconnected after the previous query
 		timeout = millis() + _timeoutMs;
 		if (!_wifiClient.connected()) {
-			while (!connectToIGD(&_gwInfo)) {
+			while (!connectToIGD(_gwInfo.host, _gwInfo.actionPort)) {
 				if (_timeoutMs > 0 && (millis() > timeout)) {
 					debugPrintln("Timeout expired while trying to connect to the IGD");
 					_wifiClient.stop();
@@ -185,7 +185,7 @@ boolean TinyUPnP::updatePortMapping(unsigned long intervalMs) {
 boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo) {	
 	debugPrintln("Verifying rule in IGD");
 			
-	_wifiClient.println("POST " + deviceInfo->addPortMappingEventUrl + " HTTP/1.1");
+	_wifiClient.println("POST " + deviceInfo->actionPath + " HTTP/1.1");
 	_wifiClient.println("Connection: close");
 	_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
 	_wifiClient.println("SOAPAction: \"urn:schemas-upnp-org:service:WANPPPConnection:1#GetSpecificPortMappingEntry\"");
