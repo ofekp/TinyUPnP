@@ -7,47 +7,54 @@
 #include "Arduino.h"
 #include "TinyUPnP.h"
 
-
-boolean udpConnected = false;
 IPAddress ipMulti(239, 255, 255, 250);
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet
-String persistent_uuid;
-String device_name;
 
 // timeoutMs - timeout in milli seconds for the operations of this class, -1 for blocking operation.
 TinyUPnP::TinyUPnP(int timeoutMs) {
 	_timeoutMs = timeoutMs;
+	_lastUpdateTime = 0;
 }
 
-boolean TinyUPnP::addPortMapping(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName) {
+void TinyUPnP::setMappingConfig(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName) {
+	this->_ruleIP = ruleIP;
+	this->_rulePort = rulePort;
+	this->_ruleProtocol = ruleProtocol;
+	this->_ruleLeaseDuration = ruleLeaseDuration;
+	this->_ruleFriendlyName = ruleFriendlyName;
+}
+
+boolean TinyUPnP::addPortMapping() {
 	unsigned long startTime = millis();
 	
 	// verify WiFi is connected
 	while (WiFi.status() != WL_CONNECTED) {
 		if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
-			return false;
 			debugPrint("Timeout expired while verifying WiFi connection");
+			return false;
 		}
 		delay(200);
 		debugPrint(".");
 	}
-	debugPrint("");  // \n
+	debugPrintln("");  // \n
 	
 	while (!connectUDP()) {
 		if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
-			return false;
 			debugPrint("Timeout expired while connecting UDP");
+			_udpClient.stop();
+			return false;
 		}
 		delay(500);
 		debugPrint(".");
 	}
-	debugPrint("");  // \n
+	debugPrintln("");  // \n
 	
 	broadcastMSearch();
 	while (!waitForUnicastResponseToMSearch(&_gwInfo)) {
 		if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
+			debugPrintln("Timeout expired while waiting for the gateway router to respond to M-SEARCH message");
+			_udpClient.stop();
 			return false;
-			debugPrint("Timeout expired while waiting for the gateway router to respond to M-SEARCH message");
 		}
 		delay(1);
 	}
@@ -56,6 +63,7 @@ boolean TinyUPnP::addPortMapping(IPAddress ruleIP, int rulePort, String ruleProt
 	// TODO: use this _gwInfo to skip the UDP part completely if it is not empty
 	if (_gwInfo.host == IPAddress(0, 0, 0, 0) || _gwInfo.port == 0 || _gwInfo.path.length() == 0) {
 		debugPrintln("Invalid router info, cannot continue");
+		_udpClient.stop();
 		return false;
 	}
 	
@@ -65,26 +73,26 @@ boolean TinyUPnP::addPortMapping(IPAddress ruleIP, int rulePort, String ruleProt
 	// connect to IGD (TCP connection)
 	while (!connectToIGD(_gwInfo.host, _gwInfo.port)) {
 		if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
-			debugPrint("Timeout expired while trying to connect to the IGD");
+			debugPrintln("Timeout expired while trying to connect to the IGD");
 			_wifiClient.stop();
 			return false;
 		}
-		delay(1000);
+		delay(500);
 	}
 	
 	// get event urls from the gateway IGD
 	while (!getIGDEventURLs(&_gwInfo)) {
 		if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
+			debugPrintln("Timeout expired while adding a new port mapping");
 			return false;
-			debugPrint("Timeout expired while adding a new port mapping");
 		}
-		delay(1000);
+		delay(500);
 	}
 	
 	debugPrintln("port [" + String(_gwInfo.port) + "] actionPort [" + _gwInfo.actionPort + "]");
 	if (_gwInfo.port != _gwInfo.actionPort) {
 		// in this case we need to connect to a different port
-		debugPrintln("Connection port changed, disconneting from IGD");
+		debugPrintln("Connection port changed, disconnecting from IGD");
 		_wifiClient.stop();
 	}
 	
@@ -92,26 +100,144 @@ boolean TinyUPnP::addPortMapping(IPAddress ruleIP, int rulePort, String ruleProt
 	if (!_wifiClient.connected()) {
 		while (!connectToIGD(_gwInfo.host, _gwInfo.actionPort)) {
 			if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
-				debugPrint("Timeout expired while trying to connect to the IGD");
+				debugPrintln("Timeout expired while trying to connect to the IGD");
 				_wifiClient.stop();
 				return false;
 			}
-			delay(1000);
+			delay(500);
 		}
 	}
 	
-	// add the port mapping
-	while (!addPortMappingEntry(ruleIP, rulePort, ruleProtocol, ruleLeaseDuration, ruleFriendlyName, &_gwInfo)) {
+	while (!verifyPortMapping(&_gwInfo)) {
+		// connect to IGD (TCP connection) again, if needed, in case we got disconnected after the previous query
+		if (!_wifiClient.connected()) {
+			while (!connectToIGD(&_gwInfo)) {
+				if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
+					debugPrintln("Timeout expired while trying to connect to the IGD");
+					_wifiClient.stop();
+					return false;
+				}
+				delay(500);
+			}
+		}
+		
+		// add the port mapping
+		addPortMappingEntry(&_gwInfo);
 		if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
-			debugPrint("Timeout expired while adding a new port mapping");
+			debugPrintln("Timeout expired while trying to add the port mapping");
+			_wifiClient.stop();
 			return false;
 		}
-		delay(1000);
+		delay(500);
 	}
 	
 	_wifiClient.stop();
 	
 	return true;
+}
+
+boolean TinyUPnP::updatePortMapping(unsigned long intervalMs) {	
+    if (millis() - _lastUpdateTime >= intervalMs) {
+		debugPrintln("Updating port mapping");
+		
+		// verify WiFi is connected
+		unsigned long timeout = millis() + _timeoutMs;
+		while (WiFi.status() != WL_CONNECTED) {
+			if (_timeoutMs > 0 && (millis() > timeout)) {
+				debugPrint("Timeout expired while verifying WiFi connection");
+				return false;
+			}
+			delay(200);
+			debugPrint(".");
+		}
+		debugPrintln("");  // new line
+		
+		// connect to IGD (TCP connection) again, if needed, in case we got disconnected after the previous query
+		timeout = millis() + _timeoutMs;
+		if (!_wifiClient.connected()) {
+			while (!connectToIGD(&_gwInfo)) {
+				if (_timeoutMs > 0 && (millis() > timeout)) {
+					debugPrintln("Timeout expired while trying to connect to the IGD");
+					_wifiClient.stop();
+					return false;
+				}
+				delay(500);
+			}
+		}
+		
+		if (verifyPortMapping(&_gwInfo)) {
+			debugPrintln("Port mapping was already found in the IGD, not doing anything");
+			_lastUpdateTime = millis();
+			return true;
+		}
+		
+		debugPrintln("Adding port mapping");
+		if (addPortMapping()) {
+			_lastUpdateTime = millis();
+			debugPrintln("UPnP port mapping was added");
+		} else {
+			_lastUpdateTime += 10000;  // delay next try by 10 seconds
+			debugPrintln("Error while updating UPnP port mapping");
+		}
+	}
+}
+
+boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo) {	
+	debugPrintln("Verifying rule in IGD");
+			
+	_wifiClient.println("POST " + deviceInfo->addPortMappingEventUrl + " HTTP/1.1");
+	_wifiClient.println("Connection: close");
+	_wifiClient.println("Content-Type: text/xml; charset=\"utf-8\"");
+	_wifiClient.println("SOAPAction: \"urn:schemas-upnp-org:service:WANPPPConnection:1#GetSpecificPortMappingEntry\"");
+	String body = "<?xml version=\"1.0\"?>\r\n"
+		"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\r\n"
+		"<s:Body>\r\n"
+		"<u:GetSpecificPortMappingEntry xmlns:u=\"urn:schemas-upnp-org:service:WANPPPConnection:1\">\r\n"
+		"  <NewRemoteHost></NewRemoteHost>\r\n"
+		"  <NewExternalPort>" + String(_rulePort) + "</NewExternalPort>\r\n"
+		"  <NewProtocol>" + _ruleProtocol + "</NewProtocol>\r\n"
+		"</u:GetSpecificPortMappingEntry>\r\n"
+		"</s:Body>\r\n"
+		"</s:Envelope>\r\n";
+	_wifiClient.println("Content-Length: " + String(body.length()));
+	_wifiClient.println();
+	_wifiClient.println(body);
+	_wifiClient.println();
+	
+	debugPrintln(body);
+
+	unsigned long timeout = millis() + TCP_CONNECTION_TIMEOUT_MS;
+	while (_wifiClient.available() == 0) {
+		if (millis() > timeout) {
+			debugPrintln("TCP connection timeout while retrieving port mappings");
+			_wifiClient.stop();
+			return false;
+		}
+	}
+	
+	// TODO: extract the current lease duration and return it instead of a boolean
+	boolean isSuccess = false;
+	while (_wifiClient.available()) {
+		String line = _wifiClient.readStringUntil('\r');
+		if (line.indexOf("errorCode") >= 0) {
+			isSuccess = false;
+		}
+		if (line.indexOf(ipAddressToString(_ruleIP)) >= 0) {
+			isSuccess = true;
+		}
+		debugPrint(line);
+	}
+	debugPrintln("");  // new line
+
+	_wifiClient.stop();
+	
+	if (isSuccess) {
+		debugPrintln("Port mapping found in IGD");
+	} else {
+		debugPrintln("Could not find port mapping in IGD");
+	}
+	
+	return isSuccess;
 }
 
 // a single try to connect UDP multicast address and port of UPnP (239.255.255.250 and 1900 respectively)
@@ -120,7 +246,7 @@ boolean TinyUPnP::connectUDP() {
 	if (_udpClient.beginMulticast(WiFi.localIP(), ipMulti, UPNP_SSDP_PORT)) {
 		return true;
 	}
-	debugPrint("UDP connection failed");
+	debugPrintln("UDP connection failed");
 	return false;
 }
 
@@ -129,7 +255,7 @@ boolean TinyUPnP::connectUDP() {
 // same UPnP port (1900)
 void TinyUPnP::broadcastMSearch() {
 	debugPrint("Sending M-SEARCH to [");
-	debugPrint(String(ipMulti));
+	debugPrint(ipAddressToString(ipMulti));
 	debugPrint("] Port [");
 	debugPrint(String(UPNP_SSDP_PORT));
 	debugPrintln("]");
@@ -150,7 +276,7 @@ void TinyUPnP::broadcastMSearch() {
 	debugPrintln("M-SEARCH sent");
 }
 
-// Asuuming an M-SEARCH message was braodcaseted, wait for the response from the IGD (Internet Gateway Devide)
+// Assuming an M-SEARCH message was broadcaseted, wait for the response from the IGD (Internet Gateway Device)
 // Note: the response from the IGD is sent back as unicast to this device
 // Note: only gateway defined IGD response will be considered, the rest will be ignored
 boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo) {
@@ -222,7 +348,7 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo) {
 	String path = getPath(location);
 	
 	deviceInfo->host = host;
-	deviceInfo->port = port;	
+	deviceInfo->port = port;
 	deviceInfo->path = path;
 	// the following is the default and may be overridden if URLBase tag is specified
 	deviceInfo->actionPort = port;
@@ -293,6 +419,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			}
 		}
 		
+		
 		int service_type_1_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_1 + UPNP_SERVICE_TYPE_TAG_END);
 		int service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_2 + UPNP_SERVICE_TYPE_TAG_END);
 		if (!upnpServiceFound && service_type_1_index >= 0) {
@@ -324,8 +451,12 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 				debugPrint(line);
 			}
 			
-			return true;
+			break;
 		}
+	}
+	
+	if (upnpServiceFound && controlURLFound) {
+		return true;
 	}
 
 	return false;
@@ -334,7 +465,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 // assuming a connection to the IGD has been formed
 // will add the port mapping to the IGD
 // ruleProtocol - either "TCP" or "UDP"
-boolean TinyUPnP::addPortMappingEntry(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName, gatewayInfo *deviceInfo) {  
+boolean TinyUPnP::addPortMappingEntry(gatewayInfo *deviceInfo) {
 	debugPrintln("called addPortMappingEntry");
 	debugPrintln("deviceInfo->actionPath [" + deviceInfo->actionPath + "]");
 	debugPrintln("deviceInfo->serviceTypeName [" + deviceInfo->serviceTypeName + "]");
@@ -351,13 +482,13 @@ boolean TinyUPnP::addPortMappingEntry(IPAddress ruleIP, int rulePort, String rul
 		"<s:Body>"
 		"<u:AddPortMapping xmlns:u=\"" + deviceInfo->serviceTypeName + "\">"
 		"<NewRemoteHost></NewRemoteHost>"
-		"<NewExternalPort>" + String(rulePort) + "</NewExternalPort>"
-		"<NewProtocol>" + ruleProtocol + "</NewProtocol>"
-		"<NewInternalPort>" + String(rulePort) + "</NewInternalPort>"
-		"<NewInternalClient>" + ipAddressToString(ruleIP) + "</NewInternalClient>"
+		"<NewExternalPort>" + String(_rulePort) + "</NewExternalPort>"
+		"<NewProtocol>" + _ruleProtocol + "</NewProtocol>"
+		"<NewInternalPort>" + String(_rulePort) + "</NewInternalPort>"
+		"<NewInternalClient>" + ipAddressToString(_ruleIP) + "</NewInternalClient>"
 		"<NewEnabled>1</NewEnabled>"
-		"<NewPortMappingDescription>" + ruleFriendlyName + "</NewPortMappingDescription>"
-		"<NewLeaseDuration>" + String(ruleLeaseDuration) + "</NewLeaseDuration>"
+		"<NewPortMappingDescription>" + _ruleFriendlyName + "</NewPortMappingDescription>"
+		"<NewLeaseDuration>" + String(_ruleLeaseDuration) + "</NewLeaseDuration>"
 		"</u:AddPortMapping>"
 		"</s:Body>"
 		"</s:Envelope>";

@@ -1,11 +1,8 @@
 /*
-  TinyUPnP.h - Library for creating UPnP rules automatically in your router.
   Created by Ofek Pearl, September 2017.
-  Released into the public domain.
 */
 
 #include <ESP8266WiFi.h>
-#include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
@@ -18,9 +15,12 @@ const char* password = "<FILL THIS!>";
 #define LISTEN_PORT <FILL THIS!>
 #define LEASE_DURATION 36000  // seconds
 #define FRIENDLY_NAME "<FILL THIS!>"
+#define DDNS_USERNAME "<FILL THIS!>"
+#define DDNS_PASSWORD "<FILL THIS!>"
+#define DDNS_DOMAIN "<FILL THIS!>"
 unsigned long lastUpdateTime = 0;
 
-TinyUPnP *tinyUPnP = new TinyUPnP(-1);  // -1 means blocking, preferably, use a timeout value (ms)
+TinyUPnP *tinyUPnP = new TinyUPnP(20000);  // -1 for blocking (preferably, use a timeout value in [ms])
 ESP8266WebServer server(LISTEN_PORT);
 
 const int led = 13;
@@ -59,6 +59,33 @@ void handleRoot() {
   setPower(percentage);
 }
 
+void connectWiFi() {
+  //WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  Serial.println("");
+
+  // flash twice to know that we are trying to connect to the WiFi
+  setPower(50);
+  delay(200);
+  setPower(0);
+  delay(200);
+  setPower(50);
+  delay(200);
+  setPower(0);
+
+  // wait for connection
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  
+  Serial.println("");
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
 void handleNotFound() {
   String message = "File Not Found\n\n";
   message += "URI: ";
@@ -78,42 +105,35 @@ void setup(void) {
   pinMode (led, OUTPUT);
   digitalWrite (led, 0);
   Serial.println("Starting...");
+  
+  WiFi.setAutoConnect(true);
+  connectWiFi();
 
-  Serial.begin(115200);
-  //WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  Serial.println("");
+  boolean portMappingAdded = false;
+  while (!portMappingAdded) {
+    tinyUPnP->setMappingConfig(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
+    portMappingAdded = tinyUPnP->addPortMapping();
+    Serial.println("");
+  
+    if (!portMappingAdded) {
+      // for debugging, you can see this in your router too under forwarding or UPnP
+      tinyUPnP->printAllPortMappings();
+      Serial.println("This was printed because adding the required port mapping failed");
+    }
 
-  // flash twice to know that the setup has started
-  setPower(50);
-  delay(200);
-  setPower(0);
-  delay(200);
-  setPower(50);
-  delay(200);
-  setPower(0);
-
-  // Wait for connection
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+    if (!portMappingAdded) {
+      delay(30000);  // 30 seconds before trying again
+    }
   }
-  Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println(ssid);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-
-  if (tinyUPnP->addPortMapping(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME)) {
-    lastUpdateTime = millis();
-  }
-  Serial.println();
-
-  tinyUPnP->printAllPortMappings();
-  Serial.println();
   
   Serial.println("UPnP done");
-
+  
+  
+  // DDNS
+  EasyDDNS.service("dynu");
+  EasyDDNS.client(DDNS_DOMAIN, DDNS_USERNAME, DDNS_PASSWORD);
+  
+  // server
   if (MDNS.begin("esp8266")) {
     Serial.println("MDNS responder started");
   }
@@ -159,13 +179,10 @@ void setup(void) {
 
 void loop(void) {
   delay(1);
-  server.handleClient();
 
-  // update UPnP port mapping rule if needed
-  if ((millis() - lastUpdateTime) > (long) (0.8D * (double) (LEASE_DURATION * 1000.0))) {
-    Serial.print("UPnP rule is about to be revoked, renewing lease");
-    if (tinyUPnP->addPortMapping(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME)) {
-      lastUpdateTime = millis();
-    }
-  }
+  EasyDDNS.update(100000); // Check for New IP Every 100 Seconds.
+
+  tinyUPnP->updatePortMapping(120000);
+
+  server.handleClient();
 }

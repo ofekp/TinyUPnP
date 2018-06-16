@@ -31,7 +31,7 @@ typedef struct _gatewayInfo {
 	// router info
 	IPAddress host;
 	int port;  // this port is used when getting router capabilities and xml files
-	String path; // this is the path that is used to retrieve router information from xml files
+	String path;  // this is the path that is used to retrieve router information from xml files
 	
 	// info for actions
 	int actionPort;  // this port is used when performing SOAP API actions
@@ -59,15 +59,19 @@ class TinyUPnP
 	public:
 		TinyUPnP(int timeoutMs);
 		~TinyUPnP();
-		boolean addPortMapping(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName);
+		boolean addPortMapping();
+		void setMappingConfig(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName);
+		boolean updatePortMapping(unsigned long intervalMs);
 		boolean printAllPortMappings();
+		boolean verifyPortMapping(gatewayInfo *deviceInfo);
 	private:
 		boolean connectUDP();
 		void broadcastMSearch();
 		boolean waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo);
+		//boolean connectToIGD(gatewayInfo *deviceInfo);
 		boolean connectToIGD(IPAddress host, int port);
 		boolean getIGDEventURLs(gatewayInfo *deviceInfo);
-		boolean addPortMappingEntry(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName, gatewayInfo *deviceInfo);
+		boolean addPortMappingEntry(gatewayInfo *deviceInfo);
 		boolean printAllRules(gatewayInfo *deviceInfo);
 		IPAddress ipToAddress(String ip);
 		char* ipAddressToCharArr(IPAddress ipAddress);  // ?? not sure this is needed
@@ -82,6 +86,12 @@ class TinyUPnP
 		void debugPrintln(String message);
 
 		/* members */
+		IPAddress _ruleIP;
+		int _rulePort;
+		String _ruleProtocol;
+		int _ruleLeaseDuration;
+		String _ruleFriendlyName;
+		unsigned long _lastUpdateTime;
 		int _timeoutMs;  // -1 for blocking operation
 		WiFiUDP _udpClient;
 		WiFiClient _wifiClient;
