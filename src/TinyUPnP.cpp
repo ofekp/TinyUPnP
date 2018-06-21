@@ -313,7 +313,7 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo) {
 	debugPrint(String(_udpClient.remotePort()));
 	debugPrintln("]");
   
-	int len = _udpClient.read(packetBuffer, 255);
+	int len = _udpClient.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
 	if (len > 0) {
 		packetBuffer[len] = 0;
 	} else {
