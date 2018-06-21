@@ -14,6 +14,7 @@ char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet
 TinyUPnP::TinyUPnP(int timeoutMs) {
 	_timeoutMs = timeoutMs;
 	_lastUpdateTime = 0;
+	_numOfFallbackTimes = 0;
 }
 
 void TinyUPnP::setMappingConfig(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName) {
@@ -136,14 +137,24 @@ boolean TinyUPnP::addPortMapping() {
 	return true;
 }
 
-boolean TinyUPnP::updatePortMapping(unsigned long intervalMs) {	
+boolean TinyUPnP::updatePortMapping(unsigned long intervalMs) {
     if (millis() - _lastUpdateTime >= intervalMs) {
 		debugPrintln("Updating port mapping");
+
+		debugPrintln("Current number of fallbacks times [" + String(_numOfFallbackTimes) + "]");
+
+		// fall back in case the details in _gwInfo are incorrect (this might be a result of a powerdown)
+		if (millis() - _lastUpdateTime >= MAX_NUM_OF_UPDATES_WITH_NO_EFFECT * intervalMs) {
+			debugPrintln("Too many times with no effect on updatePortMapping. Falling back to addPortMapping.");
+			_numOfFallbackTimes++;
+			return addPortMapping();
+		}
 		
+		unsigned long startTime = millis();
+
 		// verify WiFi is connected
-		unsigned long timeout = millis() + _timeoutMs;
 		while (WiFi.status() != WL_CONNECTED) {
-			if (_timeoutMs > 0 && (millis() > timeout)) {
+			if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
 				debugPrint("Timeout expired while verifying WiFi connection");
 				return false;
 			}
@@ -153,10 +164,9 @@ boolean TinyUPnP::updatePortMapping(unsigned long intervalMs) {
 		debugPrintln("");  // new line
 		
 		// connect to IGD (TCP connection) again, if needed, in case we got disconnected after the previous query
-		timeout = millis() + _timeoutMs;
 		if (!_wifiClient.connected()) {
 			while (!connectToIGD(_gwInfo.host, _gwInfo.actionPort)) {
-				if (_timeoutMs > 0 && (millis() > timeout)) {
+				if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
 					debugPrintln("Timeout expired while trying to connect to the IGD");
 					_wifiClient.stop();
 					return false;

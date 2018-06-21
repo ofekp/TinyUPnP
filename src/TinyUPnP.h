@@ -22,6 +22,8 @@
 #define RULE_PROTOCOL_TCP "TCP"
 #define RULE_PROTOCOL_UDP "UDP"
 
+#define MAX_NUM_OF_UPDATES_WITH_NO_EFFECT 10  // after 10 tries of updatePortMapping we will execute the more extensive addPortMapping
+
 const String UPNP_SERVICE_TYPE_1 = "urn:schemas-upnp-org:service:WANPPPConnection:1";
 const String UPNP_SERVICE_TYPE_2 = "urn:schemas-upnp-org:service:WANIPConnection:1";
 const String UPNP_SERVICE_TYPE_TAG_START = "<serviceType>";
@@ -96,6 +98,7 @@ class TinyUPnP
 		WiFiUDP _udpClient;
 		WiFiClient _wifiClient;
 		gatewayInfo _gwInfo;
+		unsigned long _numOfFallbackTimes;
 };
 
 #endif
