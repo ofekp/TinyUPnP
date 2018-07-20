@@ -1,40 +1,46 @@
 # TinyUPnP
 A very small UPnP IGD implementation for ESP8266.
 
-##Installation
+Installation
+=
 Just clone or download as zip, then simply copy the folder TinyUPnP to the Arduino IDE "libraries" folder e.g "D:\arduino-1.6.8\libraries".
 
-##Usage and More Information
+Usage and More Information
+=
 
-#####Declare
+**Declare**
 ```
 TinyUPnP *tinyUPnP = new TinyUPnP(20000);  // -1 for blocking (preferably, use a timeout value in [ms])
 ```
-#####Setup
+**Setup**
 ```
 tinyUPnP->setMappingConfig(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
 portMappingAdded = tinyUPnP->addPortMapping();
 ```
-#####Loop
+**Loop**
 ```
 // update UPnP port mapping every ms internal
 tinyUPnP->updatePortMapping(120000);
 ```
-#####Print
+**Print**
 ```
 // print all the current port mappings
 tinyUPnP->printAllPortMappings();
 ```
-#####Debug
+**Debug**
+
 You can turn off debug prints by setting `IS_DEBUG` to `false` in [TinyUPnP.h#L15](https://github.com/ofekp/TinyUPnP/blob/master/src/TinyUPnP.h#L15)
 
-##Issues
+Issues
+=
 When reporting issues, attach full log (i.e `IS_DEBUG` is set to `true`) and add the serial output to the issue, preferably as a text file.
 
-##Beer
+Beer
+=
 If you like what I got, support me by buying me a :beer: [Beer](https://www.paypal.me/ofekpearl/5usd) and cheers to you!
 
-##To anyone interested in how the library works
+For anyone interested in how the library works
+=
 1. It sends an M_SEARCH message to UPnP UDP multicast address.
 2. The gateway router will respond with a message including an HTTP header called Location.
 3. `Location` is a link to an XML file containing the IGD (Internet Gateway Device) API in order to create the needed calls which will add the new port mapping to your gateway router.
@@ -71,10 +77,12 @@ I hope this helps.
 Referenced from my answer here:
 https://stackoverflow.com/a/46267791/4295037
 
-##DDNS
+DDNS
+=
 You will also need a DDNS update service
 I use this https://github.com/ayushsharma82/EasyDDNS
 You can also see its usage in my example code [PWM_LEDServer.ino](https://github.com/ofekp/TinyUPnP/blob/master/examples/PWM_LEDServer/PWM_LEDServer.ino)
 
-##Special thanks
+Special thanks
+=
 [@ajwtech](https://github.com/ajwtech) - for contributing to the package by noting the need to use `constrolURL` instead of `eventSubURL`
