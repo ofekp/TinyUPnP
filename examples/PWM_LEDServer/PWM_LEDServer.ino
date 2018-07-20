@@ -45,7 +45,7 @@ void handleRoot() {
   message += "\n";                            //Add a new line
   int percentage = 0;
   for (int i = 0; i < server.args(); i++) {
-    message += "Arg n" + (String)i + " –> "; //Include the current iteration value
+    message += "Arg n" + (String)i + " ï¿½> "; //Include the current iteration value
     message += server.argName(i) + ": ";     //Get the name of the parameter
     message += server.arg(i) + "\n";         //Get the value of the parameter
     
@@ -111,8 +111,8 @@ void setup(void) {
   connectWiFi();
 
   boolean portMappingAdded = false;
+  tinyUPnP->setMappingConfig(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
   while (!portMappingAdded) {
-    tinyUPnP->setMappingConfig(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
     portMappingAdded = tinyUPnP->addPortMapping();
     Serial.println("");
   
@@ -120,9 +120,6 @@ void setup(void) {
       // for debugging, you can see this in your router too under forwarding or UPnP
       tinyUPnP->printAllPortMappings();
       Serial.println("This was printed because adding the required port mapping failed");
-    }
-
-    if (!portMappingAdded) {
       delay(30000);  // 30 seconds before trying again
     }
   }
@@ -181,7 +178,7 @@ void setup(void) {
 void loop(void) {
   delay(1);
 
-  EasyDDNS.update(100000); // Check for New IP Every 100 Seconds.
+  EasyDDNS.update(100000);  // check for New IP Every 100 Seconds.
 
   tinyUPnP->updatePortMapping(120000);
 

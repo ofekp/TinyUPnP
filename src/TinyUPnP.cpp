@@ -8,12 +8,12 @@
 #include "TinyUPnP.h"
 
 IPAddress ipMulti(239, 255, 255, 250);
-char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet
+uint8_t packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet UDP_TX_PACKET_MAX_SIZE=8192
 
 // timeoutMs - timeout in milli seconds for the operations of this class, -1 for blocking operation.
 TinyUPnP::TinyUPnP(int timeoutMs) {
 	_timeoutMs = timeoutMs;
-	_lastUpdateTime = 0;
+	_lastUpdateTime = millis();
 	_numOfFallbackTimes = 0;
 }
 
@@ -32,6 +32,7 @@ boolean TinyUPnP::addPortMapping() {
 	while (WiFi.status() != WL_CONNECTED) {
 		if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
 			debugPrint("Timeout expired while verifying WiFi connection");
+			_wifiClient.stop();
 			return false;
 		}
 		delay(200);
@@ -39,37 +40,17 @@ boolean TinyUPnP::addPortMapping() {
 	}
 	debugPrintln("");  // \n
 	
-	while (!connectUDP()) {
-		if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
-			debugPrint("Timeout expired while connecting UDP");
-			_udpClient.stop();
-			return false;
-		}
-		delay(500);
-		debugPrint(".");
-	}
-	debugPrintln("");  // \n
-	
-	broadcastMSearch();
-	while (!waitForUnicastResponseToMSearch(&_gwInfo)) {
-		if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
-			debugPrintln("Timeout expired while waiting for the gateway router to respond to M-SEARCH message");
-			_udpClient.stop();
-			return false;
-		}
-		delay(1);
+	// get all the needed IGD information using SSDP if we don't have it already
+	if (!isGatewayInfoValid(&_gwInfo)) {
+		getGatewayInfo(&_gwInfo, startTime);
 	}
 	
 	// verify gateway information is valid
-	// TODO: use this _gwInfo to skip the UDP part completely if it is not empty
-	if (_gwInfo.host == IPAddress(0, 0, 0, 0) || _gwInfo.port == 0 || _gwInfo.path.length() == 0) {
-		debugPrintln("Invalid router info, cannot continue");
-		_udpClient.stop();
+	if (!isGatewayInfoValid(&_gwInfo)) {
+		debugPrintln("ERROR: Invalid router info, cannot continue");
+		_wifiClient.stop();
 		return false;
 	}
-	
-	// close the UDP connection
-	_udpClient.stop();
 	
 	// connect to IGD (TCP connection)
 	while (!connectToIGD(_gwInfo.host, _gwInfo.port)) {
@@ -85,6 +66,7 @@ boolean TinyUPnP::addPortMapping() {
 	while (!getIGDEventURLs(&_gwInfo)) {
 		if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
 			debugPrintln("Timeout expired while adding a new port mapping");
+			_wifiClient.stop();
 			return false;
 		}
 		delay(500);
@@ -129,7 +111,7 @@ boolean TinyUPnP::addPortMapping() {
 			_wifiClient.stop();
 			return false;
 		}
-		delay(500);
+		delay(1000);  // longer delay to allow more time for the router to update its rules
 	}
 	
 	_wifiClient.stop();
@@ -137,17 +119,63 @@ boolean TinyUPnP::addPortMapping() {
 	return true;
 }
 
+void TinyUPnP::getGatewayInfo(gatewayInfo *deviceInfo, long startTime) {
+	while (!connectUDP()) {
+		if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
+			debugPrint("Timeout expired while connecting UDP");
+			_udpClient.stop();
+			return;
+		}
+		delay(500);
+		debugPrint(".");
+	}
+	debugPrintln("");  // \n
+	
+	broadcastMSearch();
+	IPAddress gatewayIP = WiFi.gatewayIP();
+	while (!waitForUnicastResponseToMSearch(deviceInfo, gatewayIP)) {
+		if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
+			debugPrintln("Timeout expired while waiting for the gateway router to respond to M-SEARCH message");
+			_udpClient.stop();
+			return;
+		}
+		delay(1);
+	}
+
+	// close the UDP connection
+	_udpClient.stop();
+}
+
+void TinyUPnP::clearGatewayInfo(gatewayInfo *deviceInfo) {
+	deviceInfo->host = IPAddress(0, 0, 0, 0);
+	deviceInfo->port = 0;
+	deviceInfo->path = "";
+	deviceInfo->actionPort = 0;
+	deviceInfo->actionPath = "";
+	deviceInfo->serviceTypeName = "";
+}
+
+boolean TinyUPnP::isGatewayInfoValid(gatewayInfo *deviceInfo) {
+	if (deviceInfo->host == IPAddress(0, 0, 0, 0)
+		|| deviceInfo->port == 0
+		|| deviceInfo->path.length() == 0
+		|| deviceInfo->actionPort == 0) {
+		debugPrintln("Gateway info is not valid");
+		return false;
+	}
+}
+
 boolean TinyUPnP::updatePortMapping(unsigned long intervalMs) {
     if (millis() - _lastUpdateTime >= intervalMs) {
 		debugPrintln("Updating port mapping");
 
-		debugPrintln("Current number of fallbacks times [" + String(_numOfFallbackTimes) + "]");
-
-		// fall back in case the details in _gwInfo are incorrect (this might be a result of a powerdown)
+		// if we had no rule update in a while it may be because a change occurred in the network,
+		// we will delete the gateway info so that addPortMapping method to look for the
+		// gateway devide info again.
 		if (millis() - _lastUpdateTime >= MAX_NUM_OF_UPDATES_WITH_NO_EFFECT * intervalMs) {
-			debugPrintln("Too many times with no effect on updatePortMapping. Falling back to addPortMapping.");
 			_numOfFallbackTimes++;
-			return addPortMapping();
+			debugPrintln("ERROR: Too many times with no effect on updatePortMapping. Current number of fallbacks times [" + String(_numOfFallbackTimes) + "]");
+			clearGatewayInfo(&_gwInfo);
 		}
 		
 		unsigned long startTime = millis();
@@ -156,12 +184,13 @@ boolean TinyUPnP::updatePortMapping(unsigned long intervalMs) {
 		while (WiFi.status() != WL_CONNECTED) {
 			if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
 				debugPrint("Timeout expired while verifying WiFi connection");
+				_wifiClient.stop();
 				return false;
 			}
 			delay(200);
 			debugPrint(".");
 		}
-		debugPrintln("");  // new line
+		debugPrintln("");  // \n
 		
 		// connect to IGD (TCP connection) again, if needed, in case we got disconnected after the previous query
 		if (!_wifiClient.connected()) {
@@ -178,6 +207,7 @@ boolean TinyUPnP::updatePortMapping(unsigned long intervalMs) {
 		if (verifyPortMapping(&_gwInfo)) {
 			debugPrintln("Port mapping was already found in the IGD, not doing anything");
 			_lastUpdateTime = millis();
+			_wifiClient.stop();
 			return true;
 		}
 		
@@ -187,8 +217,10 @@ boolean TinyUPnP::updatePortMapping(unsigned long intervalMs) {
 			debugPrintln("UPnP port mapping was added");
 		} else {
 			_lastUpdateTime += 10000;  // delay next try by 10 seconds
-			debugPrintln("Error while updating UPnP port mapping");
+			debugPrintln("ERROR: While updating UPnP port mapping");
 		}
+
+		_wifiClient.stop();
 	}
 }
 
@@ -237,7 +269,7 @@ boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo) {
 		}
 		debugPrint(line);
 	}
-	debugPrintln("");  // new line
+	debugPrintln("");  // \n
 
 	_wifiClient.stop();
 	
@@ -261,7 +293,7 @@ boolean TinyUPnP::connectUDP() {
 }
 
 // broadcast an M-SEARCH message to initiate messages from SSDP devices
-// the router should respond to this message by a packat sent to this device's unicast addresss on the
+// the router should respond to this message by a packet sent to this device's unicast addresss on the
 // same UPnP port (1900)
 void TinyUPnP::broadcastMSearch() {
 	debugPrint("Sending M-SEARCH to [");
@@ -275,8 +307,6 @@ void TinyUPnP::broadcastMSearch() {
 		"HOST: 239.255.255.250:1900\r\n"
 		"MAN: \"ssdp:discover\"\r\n"
 		"MX: 5\r\n"
-		//"ST: urn:schemas-upnp-org:service:WANPPPConnection:1\r\n\r\n";
-		//"ST: urn:schemas-upnp-org:device:WANConnectionDevice:1\r\n\r\n";
 		"ST: ssdp:all\r\n\r\n";
 
 	_udpClient.beginPacketMulticast(ipMulti, UPNP_SSDP_PORT, WiFi.localIP());
@@ -289,13 +319,16 @@ void TinyUPnP::broadcastMSearch() {
 // Assuming an M-SEARCH message was broadcaseted, wait for the response from the IGD (Internet Gateway Device)
 // Note: the response from the IGD is sent back as unicast to this device
 // Note: only gateway defined IGD response will be considered, the rest will be ignored
-boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo) {
+boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAddress gatewayIP) {
 	int packetSize = _udpClient.parsePacket();
+	// only continue is a packet is available
+	if (packetSize <= 0) {
+		return false;
+	}
+
 	IPAddress remoteIP = _udpClient.remoteIP();
-	IPAddress gatewayIP = WiFi.gatewayIP();
-  
 	// only continue if the packet was received from the gateway router
-	if (remoteIP != gatewayIP || packetSize <= 0) {
+	if (remoteIP != gatewayIP) {
 		return false;
 	}
 
@@ -309,28 +342,38 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo) {
 			debugPrint(".");
 		}
 	}
-	debugPrint("] port [");
-	debugPrint(String(_udpClient.remotePort()));
-	debugPrintln("]");
+	debugPrintln("] port [" + String(_udpClient.remotePort()) + "]");
   
+	memset(packetBuffer, 0, UDP_TX_PACKET_MAX_SIZE);
 	int len = _udpClient.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
 	if (len > 0) {
+		debugPrintln("UDP packet read bytes [" + String(len) + "]");
 		packetBuffer[len] = 0;
 	} else {
 		return false;
 	}
 
-	String response = packetBuffer;
-	String responseLowerCase = packetBuffer;
-	debugPrintln("Gateway packet content:");
+	String response((char*)packetBuffer);
+	debugPrintln("Gateway packet content (many variations for debug):");
+	debugPrintln("char at 0");
+	Serial.println(packetBuffer[0]);
+	debugPrintln("char at 1");
+	Serial.println(packetBuffer[1]);
+	debugPrintln("packetBuffer:");
+	Serial.println((char*) packetBuffer);
+	debugPrintln("response:");
 	debugPrintln(response);
 
 	// only continue if the packet is a response to M-SEARCH and it originated from a gateway device
 	if (response.indexOf(INTERNET_GATEWAY_DEVICE) == -1) {
+		debugPrintln("INTERNET_GATEWAY_DEVICE was not found");
 		return false;
 	}
 
+	debugPrintln("INTERNET_GATEWAY_DEVICE found");
+
 	// extract location from message
+	String responseLowerCase((char*)packetBuffer);
 	responseLowerCase.toLowerCase();
 	String location = "";
 	String location_searchStringStart = "location: ";  // lower case since we look for match in responseLowerCase
@@ -346,6 +389,7 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo) {
 			return false;
 		}
 	} else {
+		debugPrintln("ERROR: LOCATION param was not found");
 		return false;
 	}
 	
@@ -370,7 +414,7 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo) {
 	return true;
 }
 
-// a singly trial to connect to the IGD (with TCP)
+// a single trial to connect to the IGD (with TCP)
 boolean TinyUPnP::connectToIGD(IPAddress host, int port) {
 	debugPrintln("Connecting to IGD with host [" + ipAddressToString(host) + "] port [" + port + "]");
 	if (_wifiClient.connect(host, port)) {
@@ -411,7 +455,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			// e.g. <URLBase>http://192.168.1.1:5432/</URLBase>
 			// Note: assuming URL path will only be found in a specific action under the 'controlURL' xml tag
 			String baseUrl = getTagContent(line, "URLBase");
-			if (baseUrl != NULL && baseUrl.length() > 0) {
+			if (baseUrl.length() > 0) {
 				baseUrl.trim();
 				IPAddress host = getHost(baseUrl);  // this is ignored, assuming router host IP will not change
 				int port = getPort(baseUrl);
@@ -448,20 +492,20 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 		
 		if (upnpServiceFound && (index_in_line = line.indexOf("<controlURL>", index_in_line)) >= 0) {
 			String controlURLContent = getTagContent(line.substring(index_in_line), "controlURL");
-			deviceInfo->actionPath = controlURLContent;
-			controlURLFound = true;
+			if (controlURLContent.length() > 0) {
+				deviceInfo->actionPath = controlURLContent;
+				controlURLFound = true;
 
-			debugPrint("controlURL tag found! setting actionPath to [");
-			debugPrint(controlURLContent);
-			debugPrintln("]");
-			
-			// clear buffer
-			while (_wifiClient.available()) {
-				String line = _wifiClient.readStringUntil('\r');
-				debugPrint(line);
+				debugPrint("controlURL tag found! setting actionPath to [");
+				debugPrint(controlURLContent);
+				debugPrintln("]");
+				
+				// clear buffer
+				debugPrint("Flushing the rest of the response");
+				_wifiClient.flush();
+				
+				break;
 			}
-			
-			break;
 		}
 	}
 	
@@ -474,7 +518,6 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 
 // assuming a connection to the IGD has been formed
 // will add the port mapping to the IGD
-// ruleProtocol - either "TCP" or "UDP"
 boolean TinyUPnP::addPortMappingEntry(gatewayInfo *deviceInfo) {
 	debugPrintln("called addPortMappingEntry");
 	debugPrintln("deviceInfo->actionPath [" + deviceInfo->actionPath + "]");
@@ -515,7 +558,7 @@ boolean TinyUPnP::addPortMappingEntry(gatewayInfo *deviceInfo) {
 	while (_wifiClient.available() == 0) {
 		if (millis() - timeout > TCP_CONNECTION_TIMEOUT_MS) {
 			debugPrintln("TCP connection timeout while adding a port mapping");
-			//_wifiClient.stop();
+			_wifiClient.stop();
 			return false;
 		}
 	}
@@ -529,11 +572,14 @@ boolean TinyUPnP::addPortMappingEntry(gatewayInfo *deviceInfo) {
 		}
 		debugPrintln(line);
 	}
-	debugPrintln("");  // \n\r\n
+	debugPrintln("");  // \n
+	
+	if (!isSuccess) {
+		_wifiClient.stop();
+	}
 
 	return isSuccess;
 }
-
 
 boolean TinyUPnP::printAllPortMappings() {
 	debugPrintln("Port Mappings:");
@@ -693,20 +739,20 @@ String TinyUPnP::getSpacesString(int num) {
 }
 
 IPAddress TinyUPnP::ipToAddress(String ip) {
-  int Parts[4] = {0,0,0,0};
-  int Part = 0;
+  int parts[4] = {0,0,0,0};
+  int part = 0;
   for (int i = 0; i < ip.length(); i++)
   {
     char c = ip[i];
     if ( c == '.' )
     {
-      Part++;
+      part++;
       continue;
     }
-    Parts[Part] *= 10;
-    Parts[Part] += c - '0';
+    parts[part] *= 10;
+    parts[part] += c - '0';
   }
-  return IPAddress(Parts[0], Parts[1], Parts[2], Parts[3]);
+  return IPAddress(parts[0], parts[1], parts[2], parts[3]);
 }
 
 char* TinyUPnP::ipAddressToCharArr(IPAddress ipAddress) {
@@ -731,8 +777,9 @@ IPAddress TinyUPnP::getHost(String url) {
   if (endIndex != -1) {
     url = url.substring(0, endIndex);
   }
-  if (url.indexOf(':') != -1) {
-    url = url.substring(0, url.indexOf(':'));
+  int colonsIndex = url.indexOf(':');
+  if (colonsIndex != -1) {
+    url = url.substring(0, colonsIndex);
   }
   return ipToAddress(url);
 }
@@ -745,9 +792,14 @@ int TinyUPnP::getPort(String url) {
   if (url.indexOf("http://") != -1) {
     url.replace("http://", "");
   }
-  url = url.substring(0, url.indexOf("/"));
-  if (url.indexOf(":") != -1) {
-    url = url.substring(url.indexOf(":") + 1, url.length());
+  int portEndIndex = url.indexOf("/");
+  if (portEndIndex == -1) {
+	  portEndIndex = url.length();
+  }
+  url = url.substring(0, portEndIndex);
+  int colonsIndex = url.indexOf(":");
+  if (colonsIndex != -1) {
+    url = url.substring(colonsIndex + 1, portEndIndex);
     port = url.toInt();
   } else {
     port = 80;
@@ -763,17 +815,24 @@ String TinyUPnP::getPath(String url) {
   if (url.indexOf("http://") != -1) {
     url.replace("http://", "");
   }
-  return url.substring(url.indexOf("/"), url.length());
+  int firstSlashIndex = url.indexOf("/");
+  if (firstSlashIndex == -1) {
+	debugPrintln("ERROR: Cannot find path in url [" + url + "]");
+	return "";
+  }
+  return url.substring(firstSlashIndex, url.length());
 }
 
 String TinyUPnP::getTagContent(String line, String tagName) {
   int startIndex = line.indexOf("<" + tagName + ">");
   if (startIndex == -1) {
+	debugPrintln("ERROR: Cannot find tag content in line [" + line + "] for start tag [<" + tagName + ">]");
     return "";
   }
   startIndex += tagName.length() + 2;
-  int endIndex = line.indexOf("</" + tagName + ">");
+  int endIndex = line.indexOf("</" + tagName + ">", startIndex);
   if (endIndex == -1) {
+	debugPrintln("ERROR: Cannot find tag content in line [" + line + "] for end tag [</" + tagName + ">]");
     return "";
   }
   return line.substring(startIndex, endIndex);

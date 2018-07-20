@@ -22,7 +22,7 @@
 #define RULE_PROTOCOL_TCP "TCP"
 #define RULE_PROTOCOL_UDP "UDP"
 
-#define MAX_NUM_OF_UPDATES_WITH_NO_EFFECT 10  // after 10 tries of updatePortMapping we will execute the more extensive addPortMapping
+#define MAX_NUM_OF_UPDATES_WITH_NO_EFFECT 20  // after 10 tries of updatePortMapping we will execute the more extensive addPortMapping
 
 const String UPNP_SERVICE_TYPE_1 = "urn:schemas-upnp-org:service:WANPPPConnection:1";
 const String UPNP_SERVICE_TYPE_2 = "urn:schemas-upnp-org:service:WANIPConnection:1";
@@ -69,8 +69,10 @@ class TinyUPnP
 	private:
 		boolean connectUDP();
 		void broadcastMSearch();
-		boolean waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo);
-		//boolean connectToIGD(gatewayInfo *deviceInfo);
+		boolean waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAddress gatewayIP);
+		void getGatewayInfo(gatewayInfo *deviceInfo, long startTime);
+		void clearGatewayInfo(gatewayInfo *deviceInfo);
+		boolean isGatewayInfoValid(gatewayInfo *deviceInfo);
 		boolean connectToIGD(IPAddress host, int port);
 		boolean getIGDEventURLs(gatewayInfo *deviceInfo);
 		boolean addPortMappingEntry(gatewayInfo *deviceInfo);
@@ -90,7 +92,7 @@ class TinyUPnP
 		/* members */
 		IPAddress _ruleIP;
 		int _rulePort;
-		String _ruleProtocol;
+		String _ruleProtocol;  // _ruleProtocol - either "TCP" or "UDP"
 		int _ruleLeaseDuration;
 		String _ruleFriendlyName;
 		unsigned long _lastUpdateTime;
