@@ -6,8 +6,10 @@
 
 #include "Arduino.h"
 #include "TinyUPnP.h"
+#include "ESP8266Ping.h"
 
-IPAddress ipMulti(239, 255, 255, 250);
+IPAddress ipMulti(239, 255, 255, 250);  // multicast address for SSDP
+IPAddress connectivityTestIp(8, 8, 8, 8);  // Google DNS server
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet UDP_TX_PACKET_MAX_SIZE=8192
 char packetBufferLowerCase[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet UDP_TX_PACKET_MAX_SIZE=8192
 
@@ -15,10 +17,13 @@ char body_tmp[1200];
 char integer_string[32];
 
 // timeoutMs - timeout in milli seconds for the operations of this class, -1 for blocking operation.
-TinyUPnP::TinyUPnP(int timeoutMs) {
+TinyUPnP::TinyUPnP(int timeoutMs = 20000) {
 	_timeoutMs = timeoutMs;
 	_lastUpdateTime = millis();
 	_numOfFallbackTimes = 0;
+}
+
+TinyUPnP::~TinyUPnP() {
 }
 
 void TinyUPnP::setMappingConfig(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName) {
@@ -33,16 +38,9 @@ boolean TinyUPnP::addPortMapping() {
 	unsigned long startTime = millis();
 	
 	// verify WiFi is connected
-	while (WiFi.status() != WL_CONNECTED) {
-		if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
-			debugPrint(F("Timeout expired while verifying WiFi connection"));
-			_wifiClient.stop();
-			return false;
-		}
-		delay(200);
-		debugPrint(F("."));
+	if (!testConnectivity(startTime)) {
+		return false;
 	}
-	debugPrintln("");  // \n
 	
 	// get all the needed IGD information using SSDP if we don't have it already
 	if (!isGatewayInfoValid(&_gwInfo)) {
@@ -180,27 +178,21 @@ boolean TinyUPnP::updatePortMapping(unsigned long intervalMs) {
 		// if we had no rule update in a while it may be because a change occurred in the network,
 		// we will delete the gateway info so that addPortMapping method to look for the
 		// gateway devide info again.
-		if (millis() - _lastUpdateTime >= MAX_NUM_OF_UPDATES_WITH_NO_EFFECT * intervalMs) {
-			_numOfFallbackTimes++;
-			debugPrint(F("ERROR: Too many times with no effect on updatePortMapping. Current number of fallbacks times ["));
-			debugPrint(String(_numOfFallbackTimes));
-			debugPrintln(F("]"));
-			clearGatewayInfo(&_gwInfo);
-		}
+		// if (millis() - _lastUpdateTime >= MAX_NUM_OF_UPDATES_WITH_NO_EFFECT * intervalMs) {
+		// 	_numOfFallbackTimes++;
+		// 	debugPrint(F("ERROR: Too many times with no effect on updatePortMapping. Current number of fallbacks times ["));
+		// 	debugPrint(String(_numOfFallbackTimes));
+		// 	debugPrintln(F("]"));
+		// 	//clearGatewayInfo(&_gwInfo);  // did not help
+		// 	//ESP.restart();  // should test as last resort
+		// }
 		
 		unsigned long startTime = millis();
 
-		// verify WiFi is connected
-		while (WiFi.status() != WL_CONNECTED) {
-			if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
-				debugPrint(F("Timeout expired while verifying WiFi connection"));
-				_wifiClient.stop();
-				return false;
-			}
-			delay(200);
-			debugPrint(".");
+		// verify WiFi is and Internet connection
+		if (!testConnectivity(startTime)) {
+			return false;
 		}
-		debugPrintln("");  // \n
 		
 		// connect to IGD (TCP connection) again, if needed, in case we got disconnected after the previous query
 		if (!_wifiClient.connected()) {
@@ -226,11 +218,34 @@ boolean TinyUPnP::updatePortMapping(unsigned long intervalMs) {
 			_lastUpdateTime = millis();
 			debugPrintln(F("UPnP port mapping was added"));
 		} else {
-			_lastUpdateTime += 10000;  // delay next try by 10 seconds
+			_lastUpdateTime += intervalMs / 2;  // delay next try
 			debugPrintln(F("ERROR: While updating UPnP port mapping"));
 		}
 
 		_wifiClient.stop();
+	}
+}
+
+boolean TinyUPnP::testConnectivity(long startTime) {
+	debugPrint(F("Testing WiFi connection "));
+	while (WiFi.status() != WL_CONNECTED) {
+		if (_timeoutMs > 0 && startTime > 0 && (millis() - startTime > _timeoutMs)) {
+			debugPrint(F(" ==> Timeout expired while verifying WiFi connection"));
+			_wifiClient.stop();
+			return false;
+		}
+		delay(200);
+		debugPrint(".");
+	}
+	debugPrintln(" ==> GOOD");  // \n
+
+	debugPrint(F("Testing internet connection"));
+	if (Ping.ping(connectivityTestIp)) {
+		debugPrintln(F(" ==> GOOD"));
+		return true;
+	} else {
+		debugPrintln(F(" ==> BAD"));
+		return false;
 	}
 }
 
@@ -463,8 +478,8 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	unsigned long timeout = millis();
 	while (_wifiClient.available() == 0) {
 		if (millis() - timeout > TCP_CONNECTION_TIMEOUT_MS) {
-			debugPrintln(F("TCP connection timeout while connecting to the IGD"));
-			//_wifiClient.stop();
+			debugPrintln(F("TCP connection timeout while executing getIGDEventURLs"));
+			_wifiClient.stop();
 			return false;
 		}
 	}
@@ -742,11 +757,14 @@ boolean TinyUPnP::printAllPortMappings() {
 		delay(500);
 	}
 	
-	// print nicely
+	// print nicely and free heap memory
 	upnpRuleNode *curr_ptr = ruleNodeHead_ptr;
+	upnpRuleNode *del_prt = ruleNodeHead_ptr;
 	while (curr_ptr != NULL) {
 		upnpRuleToString(curr_ptr->rule_ptr);
+		del_prt = curr_ptr;
 		curr_ptr = curr_ptr->next_ptr;
+		delete del_prt;
 	}
 	
 	_wifiClient.stop();

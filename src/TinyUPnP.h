@@ -11,6 +11,7 @@
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <WiFiClient.h>
+#include <limits.h>
 
 #define IS_DEBUG true
 #define UPNP_SSDP_PORT 1900
@@ -66,6 +67,7 @@ class TinyUPnP
 		boolean updatePortMapping(unsigned long intervalMs);
 		boolean printAllPortMappings();
 		boolean verifyPortMapping(gatewayInfo *deviceInfo);
+		boolean testConnectivity(long startTime = -1);
 	private:
 		boolean connectUDP();
 		void broadcastMSearch();
