@@ -20,13 +20,14 @@ const char* password = "<FILL THIS!>";
 #define DDNS_DOMAIN "<FILL THIS!>"
 unsigned long lastUpdateTime = 0;
 
-TinyUPnP *tinyUPnP = new TinyUPnP(20000);  // -1 for blocking (preferably, use a timeout value in [ms])
+TinyUPnP tinyUPnP(20000);
 ESP8266WebServer server(LISTEN_PORT);
 
 const int led = 13;
 const int pin = 4;
 
 const int delayval = 5;
+int consequtiveFails = 0;
 
 // 0 <= percentage <= 100
 void setPower(uint32 percentage) {
@@ -38,14 +39,12 @@ void setPower(uint32 percentage) {
 }
 
 void handleRoot() {
-  //server.send(200, "text/plain", "hello from esp8266!");
-
   String message = "Number of args received: ";
   message += server.args();            //Get number of parameters
   message += "\n";                            //Add a new line
   int percentage = 0;
   for (int i = 0; i < server.args(); i++) {
-    message += "Arg n" + (String)i + " �> "; //Include the current iteration value
+    message += "Arg n" + (String)i + " => "; //Include the current iteration value
     message += server.argName(i) + ": ";     //Get the name of the parameter
     message += server.arg(i) + "\n";         //Get the value of the parameter
     
@@ -60,9 +59,9 @@ void handleRoot() {
 }
 
 void connectWiFi() {
+  Serial.println(F("connectWiFi"));
   //WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  Serial.println("");
 
   // flash twice to know that we are trying to connect to the WiFi
   setPower(50);
@@ -76,13 +75,13 @@ void connectWiFi() {
   // wait for connection
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
+    Serial.print(F("."));
   }
   
-  Serial.println("");
-  Serial.print("Connected to ");
+  Serial.println(F(""));
+  Serial.print(F("Connected to "));
   Serial.println(ssid);
-  Serial.print("IP address: ");
+  Serial.print(F("IP address: "));
   Serial.println(WiFi.localIP());
 }
 
@@ -105,21 +104,21 @@ void setup(void) {
   Serial.begin(115200);
   pinMode (led, OUTPUT);
   digitalWrite (led, 0);
-  Serial.println("Starting...");
+  Serial.println(F("Starting..."));
   
   WiFi.setAutoConnect(true);
   connectWiFi();
 
   boolean portMappingAdded = false;
-  tinyUPnP->setMappingConfig(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
+  tinyUPnP.setMappingConfig(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
   while (!portMappingAdded) {
-    portMappingAdded = tinyUPnP->addPortMapping();
+    portMappingAdded = tinyUPnP.addPortMapping();
     Serial.println("");
   
     if (!portMappingAdded) {
       // for debugging, you can see this in your router too under forwarding or UPnP
-      tinyUPnP->printAllPortMappings();
-      Serial.println("This was printed because adding the required port mapping failed");
+      tinyUPnP.printAllPortMappings();
+      Serial.println(F("This was printed because adding the required port mapping failed"));
       delay(30000);  // 30 seconds before trying again
     }
   }
@@ -133,7 +132,7 @@ void setup(void) {
   
   // server
   if (MDNS.begin("esp8266")) {
-    Serial.println("MDNS responder started");
+    Serial.println(F("MDNS responder started"));
   }
 
   // fade on and then off to know the device is ready
@@ -165,22 +164,40 @@ void setup(void) {
   server.onNotFound(handleNotFound);
 
   server.begin();
-  Serial.println("HTTP server started");
+  Serial.println(F("HTTP server started"));
 
   delay(10);
 
-  Serial.print("Gateway Address: ");
+  Serial.print(F("Gateway Address: "));
   Serial.println(WiFi.gatewayIP().toString());
-  Serial.print("Network Mask: ");
+  Serial.print(F("Network Mask: "));
   Serial.println(WiFi.subnetMask().toString());
 }
 
 void loop(void) {
   delay(1);
 
-  EasyDDNS.update(100000);  // check for New IP Every 100 Seconds.
+  EasyDDNS.update(300000);  // check for New IP Every 100 Seconds.
 
-  tinyUPnP->updatePortMapping(120000);
+  boolean updateSuccess = tinyUPnP.updatePortMapping(600000);  // 10 minutes
+  if (updateSuccess) {
+    consequtiveFails = 0;
+  } else if (!updateSuccess && consequtiveFails > 0) {
+    consequtiveFails++;
+    Serial.print(F("Increasing consequtiveFails to ["));
+    Serial.print(String(consequtiveFails));
+    Serial.println(F("]"));
+    if (consequtiveFails % 20 == 0) {
+      Serial.print(F("ERROR: Too many times with no effect on updatePortMapping. Current number of fallbacks times ["));
+			Serial.print(String(consequtiveFails));
+			Serial.println(F("]"));
+      tinyUPnP.testConnectivity();
+      connectWiFi();
+      tinyUPnP.testConnectivity();
+    } else if (consequtiveFails == INT_MAX) {
+      consequtiveFails = 0;
+    }
+  }
 
   server.handleClient();
 }
