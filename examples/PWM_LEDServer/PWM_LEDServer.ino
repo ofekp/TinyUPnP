@@ -12,7 +12,7 @@
 // server config
 const char* ssid = "<FILL THIS!>";
 const char* password = "<FILL THIS!>";
-#define LISTEN_PORT <FILL THIS!>
+#define LISTEN_PORT <FILL THIS!>  // http://<IP or DDNS>:<LISTEN_PORT>/?percentage=<0..100>
 #define LEASE_DURATION 36000  // seconds
 #define FRIENDLY_NAME "<FILL THIS!>"
 #define DDNS_USERNAME "<FILL THIS!>"
@@ -20,7 +20,7 @@ const char* password = "<FILL THIS!>";
 #define DDNS_DOMAIN "<FILL THIS!>"
 unsigned long lastUpdateTime = 0;
 
-TinyUPnP tinyUPnP(20000);
+TinyUPnP tinyUPnP(20000);  // -1 means blocking, preferably, use a timeout value (ms)
 ESP8266WebServer server(LISTEN_PORT);
 
 const int led = 13;
@@ -44,7 +44,7 @@ void handleRoot() {
   message += "\n";                            //Add a new line
   int percentage = 0;
   for (int i = 0; i < server.args(); i++) {
-    message += "Arg n" + (String)i + " => "; //Include the current iteration value
+    message += "Arg #" + (String)i + " => "; //Include the current iteration value
     message += server.argName(i) + ": ";     //Get the name of the parameter
     message += server.arg(i) + "\n";         //Get the value of the parameter
     
@@ -59,8 +59,11 @@ void handleRoot() {
 }
 
 void connectWiFi() {
+  WiFi.disconnect();
+  delay(1200);
+  WiFi.mode(WIFI_STA);
+  //WiFi.setAutoConnect(true);
   Serial.println(F("connectWiFi"));
-  //WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
   // flash twice to know that we are trying to connect to the WiFi
@@ -105,8 +108,7 @@ void setup(void) {
   pinMode (led, OUTPUT);
   digitalWrite (led, 0);
   Serial.println(F("Starting..."));
-  
-  WiFi.setAutoConnect(true);
+
   connectWiFi();
 
   boolean portMappingAdded = false;
@@ -179,25 +181,34 @@ void loop(void) {
 
   EasyDDNS.update(300000);  // check for New IP Every 100 Seconds.
 
-  boolean updateSuccess = tinyUPnP.updatePortMapping(600000);  // 10 minutes
-  if (updateSuccess) {
-    consequtiveFails = 0;
-  } else if (!updateSuccess && consequtiveFails > 0) {
-    consequtiveFails++;
-    Serial.print(F("Increasing consequtiveFails to ["));
-    Serial.print(String(consequtiveFails));
-    Serial.println(F("]"));
-    if (consequtiveFails % 20 == 0) {
-      Serial.print(F("ERROR: Too many times with no effect on updatePortMapping. Current number of fallbacks times ["));
-			Serial.print(String(consequtiveFails));
-			Serial.println(F("]"));
-      tinyUPnP.testConnectivity();
-      connectWiFi();
-      tinyUPnP.testConnectivity();
-    } else if (consequtiveFails == INT_MAX) {
-      consequtiveFails = 0;
-    }
-  }
+  tinyUPnP.updatePortMapping(600000, &connectWiFi);  // 10 minutes
+
+  tinyUPnP.testConnectivity();
+
+  // // fallback mechanism
+  // if (updateSuccess) {
+  //   consequtiveFails = 0;
+  // } else if (!updateSuccess && consequtiveFails > 0) {
+  //   consequtiveFails++;
+  //   Serial.print(F("Increasing consequtiveFails to ["));
+  //   Serial.print(String(consequtiveFails));
+  //   Serial.println(F("]"));
+  //   if (consequtiveFails % MAX_NUM_OF_UPDATES_WITH_NO_EFFECT == 0) {
+  //     Serial.print(F("ERROR: Too many times with no effect on updatePortMapping. Current number of fallbacks times ["));
+	// 		Serial.print(String(consequtiveFails));
+	// 		Serial.println(F("]"));
+  //     tinyUPnP.testConnectivity();
+  //     connectWiFi();
+  //     tinyUPnP.testConnectivity();
+  //     tinyUPnP.clearGatewayInfo();  // forcing a full SSDP communication with the IGD
+  //   } else if (consequtiveFails == 6000) {
+  //     consequtiveFails = 0;
+  //     ESP.restart();
+  //   }
+  // } else {
+  //   // first fail after a success
+  //   consequtiveFails = 1;
+  // }
 
   server.handleClient();
 }

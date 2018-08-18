@@ -23,12 +23,14 @@
 #define RULE_PROTOCOL_TCP "TCP"
 #define RULE_PROTOCOL_UDP "UDP"
 
-#define MAX_NUM_OF_UPDATES_WITH_NO_EFFECT 20  // after 10 tries of updatePortMapping we will execute the more extensive addPortMapping
+#define MAX_NUM_OF_UPDATES_WITH_NO_EFFECT 6  // after 10 tries of updatePortMapping we will execute the more extensive addPortMapping
 
 const String UPNP_SERVICE_TYPE_1 = "urn:schemas-upnp-org:service:WANPPPConnection:1";
 const String UPNP_SERVICE_TYPE_2 = "urn:schemas-upnp-org:service:WANIPConnection:1";
 const String UPNP_SERVICE_TYPE_TAG_START = "<serviceType>";
 const String UPNP_SERVICE_TYPE_TAG_END = "</serviceType>";
+
+typedef void (*callback_function)(void);
 
 typedef struct _gatewayInfo {
 	// router info
@@ -64,16 +66,16 @@ class TinyUPnP
 		~TinyUPnP();
 		boolean addPortMapping();
 		void setMappingConfig(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName);
-		boolean updatePortMapping(unsigned long intervalMs);
+		void updatePortMapping(unsigned long intervalMs, callback_function fallback);
 		boolean printAllPortMappings();
 		boolean verifyPortMapping(gatewayInfo *deviceInfo);
 		boolean testConnectivity(long startTime = -1);
+		void clearGatewayInfo();
 	private:
 		boolean connectUDP();
 		void broadcastMSearch();
 		boolean waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAddress gatewayIP);
-		void getGatewayInfo(gatewayInfo *deviceInfo, long startTime);
-		void clearGatewayInfo(gatewayInfo *deviceInfo);
+		boolean getGatewayInfo(gatewayInfo *deviceInfo, long startTime);
 		boolean isGatewayInfoValid(gatewayInfo *deviceInfo);
 		boolean connectToIGD(IPAddress host, int port);
 		boolean getIGDEventURLs(gatewayInfo *deviceInfo);
@@ -102,7 +104,7 @@ class TinyUPnP
 		WiFiUDP _udpClient;
 		WiFiClient _wifiClient;
 		gatewayInfo _gwInfo;
-		unsigned long _numOfFallbackTimes;
+		unsigned long _consequtiveFails;
 };
 
 #endif
