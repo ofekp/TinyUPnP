@@ -1,45 +1,54 @@
 # TinyUPnP
-A very small UPnP IGD implementation for your ESP8266
+A very small UPnP IGD implementation for ESP8266.
 
 Installation
-==
-Just clone or download zip, then simply copy the folder TinyUPnP to the Arduino IDE "libraries" folder e.g "D:\arduino-1.6.8\libraries".
+=
+Just clone or download as zip, then simply copy the folder TinyUPnP to the Arduino IDE "libraries" folder e.g "D:\arduino-1.6.8\libraries".
 
 Usage and More Information
-==
-Declare:
-```
-unsigned long lastUpdateTime = 0;
-TinyUPnP *tinyUPnP = new TinyUPnP(-1);  // -1 means blocking, preferably, use a timeout value (ms)
-```
-Setup:
-```
-if (tinyUPnP->addPortMapping(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME)) {
-    lastUpdateTime = millis();
-}
-```
-Loop:
-```
-// update UPnP port mapping rule if needed
-if ((millis() - lastUpdateTime) > (long) (0.8D * (double) (LEASE_DURATION * 1000.0))) {
-    Serial.print("UPnP rule is about to be revoked, renewing lease");
-    if (tinyUPnP->addPortMapping(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME)) {
-        lastUpdateTime = millis();
-    }
-}
-```
-I only checked it with my D-Link router.
+=
 
-To anyone interested in how the library works:
---
+**Declare**
+```
+TinyUPnP *tinyUPnP = new TinyUPnP(20000);  // -1 for blocking (preferably, use a timeout value in [ms])
+```
+**Setup**
+```
+tinyUPnP->setMappingConfig(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
+portMappingAdded = tinyUPnP->addPortMapping();
+```
+**Loop**
+```
+// update UPnP port mapping every ms internal
+tinyUPnP->updatePortMapping(120000);
+```
+**Print**
+```
+// print all the current port mappings
+tinyUPnP->printAllPortMappings();
+```
+**Debug**
+
+You can turn off debug prints by setting `IS_DEBUG` to `false` in [TinyUPnP.h#L15](https://github.com/ofekp/TinyUPnP/blob/master/src/TinyUPnP.h#L15)
+
+Issues
+=
+When reporting issues, attach full log (i.e `IS_DEBUG` is set to `true`) and add the serial output to the issue, preferably as a text file.
+
+Beer
+=
+If you like what I got, support me by buying me a :beer: [Beer](https://www.paypal.me/ofekpearl/5usd) and cheers to you!
+
+For anyone interested in how the library works
+=
 1. It sends an M_SEARCH message to UPnP UDP multicast address.
-1. The gateway router will respond with a message including an HTTP header called Location.
-1. `Location` is a link to an XML file containing the IGD (Internet Gateway Device) API in order to create the needed calls which will add the new port mapping to your gateway router.
-1. One of the services that is depicted in the XML is `<serviceType>urn:schemas-upnp-org:service:WANPPPConnection:1</serviceType>` which is what the library is looking for.
-1. That service will include a `eventSubURL` tag which is a link to your router's IGD API. (The base URL is also depicted in the same file under the tag URLBase)
-1. Using the base URL and the WANPPPConnection link you can issue an HTTP query to the router that will add the UPnP rule.
-1. As a side note, the service depicted in the XML also includes a SCPDURL tag which is a link to another XML that depicts commands available for the service and their parameters. The package skips this stage as I assumed the query will be similar for many routers, this may very well not be the case, though, so it is up to you to check.
-1. From this stage the package will issue the service command using an HTTP query to the router. The actual query can be seen in the code quite clearly but for anyone interested:
+2. The gateway router will respond with a message including an HTTP header called Location.
+3. `Location` is a link to an XML file containing the IGD (Internet Gateway Device) API in order to create the needed calls which will add the new port mapping to your gateway router.
+4. One of the services that is depicted in the XML is `<serviceType>urn:schemas-upnp-org:service:WANPPPConnection:1</serviceType>` which is what the library is looking for.
+5. That service will include a `eventSubURL` tag which is a link to your router's IGD API. (The base URL is also depicted in the same file under the tag URLBase)
+6. Using the base URL and the WANPPPConnection link you can issue an HTTP query to the router that will add the UPnP rule.
+7. As a side note, the service depicted in the XML also includes a SCPDURL tag which is a link to another XML that depicts commands available for the service and their parameters. The package skips this stage as I assumed the query will be similar for many routers, this may very well not be the case, though, so it is up to you to check.
+8. From this stage the package will issue the service command using an HTTP query to the router. The actual query can be seen in the code quite clearly but for anyone interested:
 Headers:
 ```
 "POST " + <link to service command from XML> + " HTTP/1.1"
@@ -69,14 +78,11 @@ Referenced from my answer here:
 https://stackoverflow.com/a/46267791/4295037
 
 DDNS
---
+=
 You will also need a DDNS update service
 I use this https://github.com/ayushsharma82/EasyDDNS
-
-Beer
-==
-If you like what I got, support me by buying me a :beer: [Beer](https://www.paypal.me/ofekpearl/5usd) and cheers to you!
+You can also see its usage in my example code [PWM_LEDServer.ino](https://github.com/ofekp/TinyUPnP/blob/master/examples/PWM_LEDServer/PWM_LEDServer.ino)
 
 Special thanks
---
+=
 [@ajwtech](https://github.com/ajwtech) - for contributing to the package by noting the need to use `constrolURL` instead of `eventSubURL`
