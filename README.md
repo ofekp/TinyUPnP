@@ -8,6 +8,12 @@ Just clone or download as zip, then simply copy the folder TinyUPnP to the Ardui
 Usage and More Information
 =
 
+**Dependecies**
+You'll need to install few dependencies (Arduino IDE -> Sketch -> Include Library -> Manage Libraries):
+ESP8266 - For everything...
+ESP8266Ping - For verifying internet connection.
+EasyDDNS - For telling your DDNS server the IP of your Gateway Router.
+
 **Declare**
 ```
 TinyUPnP *tinyUPnP = new TinyUPnP(20000);  // -1 for blocking (preferably, use a timeout value in [ms])
