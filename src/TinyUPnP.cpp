@@ -298,6 +298,9 @@ boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo) {
 		if (millis() > timeout) {
 			debugPrintln(F("TCP connection timeout while retrieving port mappings"));
 			_wifiClient.stop();
+			// TODO: in this case we might not want to add the ports right away
+			// might want to try again or only start adding the ports after we definitely
+			// did not see them in the router list
 			return false;
 		}
 	}
@@ -348,16 +351,16 @@ void TinyUPnP::broadcastMSearch() {
 
 	_udpClient.beginPacketMulticast(ipMulti, UPNP_SSDP_PORT, WiFi.localIP());
 
-	sprintf(body_tmp, "%s", F(
-		"M-SEARCH * HTTP/1.1\r\n"
-		"HOST: 239.255.255.250:1900\r\n"
-		"MAN: \"ssdp:discover\"\r\n"
-		"MX: 5\r\n"
-		"ST: ssdp:all\r\n\r\n"));
+	strcpy_P(body_tmp, PSTR("M-SEARCH * HTTP/1.1\r\n"));
+	strcat_P(body_tmp, PSTR("HOST: 239.255.255.250:1900\r\n"));
+	strcat_P(body_tmp, PSTR("MAN: \"ssdp:discover\"\r\n"));
+	strcat_P(body_tmp, PSTR("MX: 5\r\n"));
+	strcat_P(body_tmp, PSTR("ST: ssdp:all\r\n\r\n"));
+
 	_udpClient.write(body_tmp);
 	_udpClient.endPacket();
 
-	debugPrintln("M-SEARCH sent");
+	debugPrintln(F("M-SEARCH sent"));
 }
 
 // Assuming an M-SEARCH message was broadcaseted, wait for the response from the IGD (Internet Gateway Device)
