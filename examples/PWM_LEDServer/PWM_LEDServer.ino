@@ -27,6 +27,7 @@ const int led = 13;
 const int pin = 4;
 
 const int delayval = 5;
+int consequtiveFails = 0;
 
 // 0 <= percentage <= 100
 void setPower(uint32 percentage) {
