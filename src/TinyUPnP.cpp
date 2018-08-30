@@ -502,6 +502,8 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	_wifiClient.println(F(" HTTP/1.1"));
 	_wifiClient.println(F("Content-Type: text/xml; charset=\"utf-8\""));
 	//_wifiClient.println(F("Connection: close"));
+	_wifiClient.print(F("Host: "));
+	_wifiClient.println(ipAddressToString(WiFi.localIP()));
 	_wifiClient.println(F("Content-Length: 0"));
 	_wifiClient.println();
 	
