@@ -433,10 +433,15 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
 		location_indexStart += 9;  // "location:".length()
 		char* location_indexEnd = strstr(location_indexStart, "\r\n");
 		if (location_indexEnd != NULL) {
-			int length = location_indexEnd - location_indexStart + 1;
-			char locationCharArr[length];
-			memcpy(locationCharArr, location_indexStart, length - 1);
-			locationCharArr[length - 1] = '\0';
+			// when we copy to locationCharArr we are interested in packetBuffer rather than its lower case version
+			// this is because some routers are case sensitive with URLs, refer to issue #14.
+			int urlLength = location_indexEnd - location_indexStart;
+			int arrLength = urlLength + 1;  // + 1 for '\0'
+			// converting the start index to be inside the packetBuffer rather than packetBufferLowerCase
+			char* startPtrInPacketBuffer = packetBuffer + (location_indexStart - packetBufferLowerCase);
+			char locationCharArr[arrLength];
+			memcpy(locationCharArr, startPtrInPacketBuffer, urlLength);
+			locationCharArr[arrLength - 1] = '\0';
 			location = String(locationCharArr);
 			location.trim();
 		} else {
