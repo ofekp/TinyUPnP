@@ -29,6 +29,12 @@ portMappingAdded = tinyUPnP->addPortMapping();
 // update UPnP port mapping every ms internal
 tinyUPnP->updatePortMapping(120000);
 ```
+**API**
+
+This is specific for the example code, you can do what you like here
+```
+http://<IP or DDNS>:<LISTEN_PORT>/?percentage=<0..100>
+```
 **Print**
 ```
 // print all the current port mappings
