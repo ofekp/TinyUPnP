@@ -283,7 +283,7 @@ boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo) {
 	_wifiClient.println(F(" HTTP/1.1"));
 	_wifiClient.println(F("Connection: close"));
 	_wifiClient.println(F("Content-Type: text/xml; charset=\"utf-8\""));
-	_wifiClient.println(F("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort)));
+	_wifiClient.println("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort));
 	_wifiClient.println(F("SOAPAction: \"urn:schemas-upnp-org:service:WANPPPConnection:1#GetSpecificPortMappingEntry\""));
 	_wifiClient.print(F("Content-Length: "));
 	_wifiClient.println(integer_string);
@@ -503,7 +503,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	_wifiClient.println(F(" HTTP/1.1"));
 	_wifiClient.println(F("Content-Type: text/xml; charset=\"utf-8\""));
 	//_wifiClient.println(F("Connection: close"));
-	_wifiClient.println(F("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort)));
+	_wifiClient.println("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort));
 	_wifiClient.println(F("Content-Length: 0"));
 	_wifiClient.println();
 	
@@ -641,7 +641,7 @@ boolean TinyUPnP::addPortMappingEntry(gatewayInfo *deviceInfo) {
 	_wifiClient.println(F(" HTTP/1.1"));
 	//_wifiClient.println(F("Connection: close"));
 	_wifiClient.println(F("Content-Type: text/xml; charset=\"utf-8\""));
-	_wifiClient.println(F("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort)));
+	_wifiClient.println("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort));
 	//_wifiClient.println(F("Accept: */*"));
 	//_wifiClient.println(F("Content-Type: application/x-www-form-urlencoded"));
 	_wifiClient.print(F("SOAPAction: \""));
@@ -742,7 +742,7 @@ boolean TinyUPnP::printAllPortMappings() {
 		_wifiClient.println(F(" HTTP/1.1"));
 		_wifiClient.println(F("Connection: keep-alive"));
 		_wifiClient.println(F("Content-Type: text/xml; charset=\"utf-8\""));
-		_wifiClient.println(F("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort)));
+		_wifiClient.println("Host: " + ipAddressToString(_gwInfo.host) + ":" + String(_gwInfo.actionPort));
 		_wifiClient.print(F("SOAPAction: \""));
 		_wifiClient.print(_gwInfo.serviceTypeName);
 		_wifiClient.println(F("#GetGenericPortMappingEntry\""));
