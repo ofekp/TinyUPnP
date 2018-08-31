@@ -5,8 +5,8 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
+#include <EasyDDNS.h>
 #include <WiFiUdp.h>
-#include <ESP8266SSDP.h>
 #include "TinyUPnP.h"
 
 // server config
@@ -177,38 +177,11 @@ void setup(void) {
 }
 
 void loop(void) {
-  delay(1);
+  delay(5);
 
-  EasyDDNS.update(300000);  // check for New IP Every 100 Seconds.
+  EasyDDNS.update(300000);  // check for New IP
 
   tinyUPnP.updatePortMapping(600000, &connectWiFi);  // 10 minutes
-
-  tinyUPnP.testConnectivity();
-
-  // // fallback mechanism
-  // if (updateSuccess) {
-  //   consequtiveFails = 0;
-  // } else if (!updateSuccess && consequtiveFails > 0) {
-  //   consequtiveFails++;
-  //   Serial.print(F("Increasing consequtiveFails to ["));
-  //   Serial.print(String(consequtiveFails));
-  //   Serial.println(F("]"));
-  //   if (consequtiveFails % MAX_NUM_OF_UPDATES_WITH_NO_EFFECT == 0) {
-  //     Serial.print(F("ERROR: Too many times with no effect on updatePortMapping. Current number of fallbacks times ["));
-	// 		Serial.print(String(consequtiveFails));
-	// 		Serial.println(F("]"));
-  //     tinyUPnP.testConnectivity();
-  //     connectWiFi();
-  //     tinyUPnP.testConnectivity();
-  //     tinyUPnP.clearGatewayInfo();  // forcing a full SSDP communication with the IGD
-  //   } else if (consequtiveFails == 6000) {
-  //     consequtiveFails = 0;
-  //     ESP.restart();
-  //   }
-  // } else {
-  //   // first fail after a success
-  //   consequtiveFails = 1;
-  // }
 
   server.handleClient();
 }

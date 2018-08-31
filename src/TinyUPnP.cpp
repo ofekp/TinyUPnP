@@ -283,6 +283,7 @@ boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo) {
 	_wifiClient.println(F(" HTTP/1.1"));
 	_wifiClient.println(F("Connection: close"));
 	_wifiClient.println(F("Content-Type: text/xml; charset=\"utf-8\""));
+	_wifiClient.println("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort));
 	_wifiClient.println(F("SOAPAction: \"urn:schemas-upnp-org:service:WANPPPConnection:1#GetSpecificPortMappingEntry\""));
 	_wifiClient.print(F("Content-Length: "));
 	_wifiClient.println(integer_string);
@@ -298,6 +299,9 @@ boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo) {
 		if (millis() > timeout) {
 			debugPrintln(F("TCP connection timeout while retrieving port mappings"));
 			_wifiClient.stop();
+			// TODO: in this case we might not want to add the ports right away
+			// might want to try again or only start adding the ports after we definitely
+			// did not see them in the router list
 			return false;
 		}
 	}
@@ -348,16 +352,16 @@ void TinyUPnP::broadcastMSearch() {
 
 	_udpClient.beginPacketMulticast(ipMulti, UPNP_SSDP_PORT, WiFi.localIP());
 
-	sprintf(body_tmp, "%s", F(
-		"M-SEARCH * HTTP/1.1\r\n"
-		"HOST: 239.255.255.250:1900\r\n"
-		"MAN: \"ssdp:discover\"\r\n"
-		"MX: 5\r\n"
-		"ST: ssdp:all\r\n\r\n"));
+	strcpy_P(body_tmp, PSTR("M-SEARCH * HTTP/1.1\r\n"));
+	strcat_P(body_tmp, PSTR("HOST: 239.255.255.250:1900\r\n"));
+	strcat_P(body_tmp, PSTR("MAN: \"ssdp:discover\"\r\n"));
+	strcat_P(body_tmp, PSTR("MX: 5\r\n"));
+	strcat_P(body_tmp, PSTR("ST: ssdp:all\r\n\r\n"));
+
 	_udpClient.write(body_tmp);
 	_udpClient.endPacket();
 
-	debugPrintln("M-SEARCH sent");
+	debugPrintln(F("M-SEARCH sent"));
 }
 
 // Assuming an M-SEARCH message was broadcaseted, wait for the response from the IGD (Internet Gateway Device)
@@ -430,10 +434,15 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
 		location_indexStart += 9;  // "location:".length()
 		char* location_indexEnd = strstr(location_indexStart, "\r\n");
 		if (location_indexEnd != NULL) {
-			int length = location_indexEnd - location_indexStart + 1;
-			char locationCharArr[length];
-			memcpy(locationCharArr, location_indexStart, length - 1);
-			locationCharArr[length - 1] = '\0';
+			// when we copy to locationCharArr we are interested in packetBuffer rather than its lower case version
+			// this is because some routers are case sensitive with URLs, refer to issue #14.
+			int urlLength = location_indexEnd - location_indexStart;
+			int arrLength = urlLength + 1;  // + 1 for '\0'
+			// converting the start index to be inside the packetBuffer rather than packetBufferLowerCase
+			char* startPtrInPacketBuffer = packetBuffer + (location_indexStart - packetBufferLowerCase);
+			char locationCharArr[arrLength];
+			memcpy(locationCharArr, startPtrInPacketBuffer, urlLength);
+			locationCharArr[arrLength - 1] = '\0';
 			location = String(locationCharArr);
 			location.trim();
 		} else {
@@ -494,6 +503,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	_wifiClient.println(F(" HTTP/1.1"));
 	_wifiClient.println(F("Content-Type: text/xml; charset=\"utf-8\""));
 	//_wifiClient.println(F("Connection: close"));
+	_wifiClient.println("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort));
 	_wifiClient.println(F("Content-Length: 0"));
 	_wifiClient.println();
 	
@@ -631,7 +641,7 @@ boolean TinyUPnP::addPortMappingEntry(gatewayInfo *deviceInfo) {
 	_wifiClient.println(F(" HTTP/1.1"));
 	//_wifiClient.println(F("Connection: close"));
 	_wifiClient.println(F("Content-Type: text/xml; charset=\"utf-8\""));
-	//_wifiClient.println(F("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort)));
+	_wifiClient.println("Host: " + ipAddressToString(deviceInfo->host) + ":" + String(deviceInfo->actionPort));
 	//_wifiClient.println(F("Accept: */*"));
 	//_wifiClient.println(F("Content-Type: application/x-www-form-urlencoded"));
 	_wifiClient.print(F("SOAPAction: \""));
@@ -732,6 +742,7 @@ boolean TinyUPnP::printAllPortMappings() {
 		_wifiClient.println(F(" HTTP/1.1"));
 		_wifiClient.println(F("Connection: keep-alive"));
 		_wifiClient.println(F("Content-Type: text/xml; charset=\"utf-8\""));
+		_wifiClient.println("Host: " + ipAddressToString(_gwInfo.host) + ":" + String(_gwInfo.actionPort));
 		_wifiClient.print(F("SOAPAction: \""));
 		_wifiClient.print(_gwInfo.serviceTypeName);
 		_wifiClient.println(F("#GetGenericPortMappingEntry\""));
