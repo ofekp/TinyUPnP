@@ -64,7 +64,7 @@ enum UpdateState {
 	SUCCESS,  // port mapping was added
 	NOP,  // the check is delayed
 	ERROR
-}
+};
 
 class TinyUPnP
 {

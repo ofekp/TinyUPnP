@@ -1,7 +1,6 @@
 /*
   TinyUPnP.h - Library for creating UPnP rules automatically in your router.
   Created by Ofek Pearl, September 2017.
-  Released into the public domain.
 */
 
 #include "Arduino.h"
@@ -181,7 +180,7 @@ UpdateState TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_funct
 				fallback();
 			}
 
-			return UpdateState.ERROR;
+			return ERROR;
 		}
 
 		// } else if (_consequtiveFails > 300) {
@@ -195,7 +194,7 @@ UpdateState TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_funct
 		if (!testConnectivity(startTime)) {
 			_lastUpdateTime += intervalMs / 2;  // delay next try
 			_consequtiveFails++;
-			return UpdateState.ERROR;
+			return ERROR;
 		}
 		
 		if (verifyPortMapping(&_gwInfo)) {
@@ -203,7 +202,7 @@ UpdateState TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_funct
 			_lastUpdateTime = millis();
 			_wifiClient.stop();
 			_consequtiveFails = 0;
-			return UpdateState.ALREADY_MAPPED;
+			return ALREADY_MAPPED;
 		}
 		
 		debugPrintln("Adding port mapping");
@@ -212,18 +211,18 @@ UpdateState TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_funct
 			debugPrintln(F("UPnP port mapping was added"));
 			_wifiClient.stop();
 			_consequtiveFails = 0;
-			return UpdateState.SUCCESS;
+			return SUCCESS;
 		} else {
 			_lastUpdateTime += intervalMs / 2;  // delay next try
 			debugPrintln(F("ERROR: While updating UPnP port mapping"));
 			_wifiClient.stop();
 			_consequtiveFails++;
-			return UpdateState.ERROR;
+			return ERROR;
 		}
 	}
 
 	_wifiClient.stop();
-	return UpdateState.NOP;
+	return NOP;
 }
 
 boolean TinyUPnP::testConnectivity(long startTime) {
