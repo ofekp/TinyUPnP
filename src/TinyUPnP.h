@@ -59,6 +59,13 @@ typedef struct _upnpRuleNode {
 	_upnpRuleNode *next_ptr;
 } upnpRuleNode;
 
+enum UpdateState {
+	ALREADY_MAPPED,  // the port mapping is already found in the IGD
+	SUCCESS,  // port mapping was added
+	NOP,  // the check is delayed
+	ERROR
+}
+
 class TinyUPnP
 {
 	public:
@@ -66,7 +73,7 @@ class TinyUPnP
 		~TinyUPnP();
 		boolean addPortMapping();
 		void setMappingConfig(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName);
-		void updatePortMapping(unsigned long intervalMs, callback_function fallback);
+		UpdateState updatePortMapping(unsigned long intervalMs, callback_function fallback /* optional */);
 		boolean printAllPortMappings();
 		boolean verifyPortMapping(gatewayInfo *deviceInfo);
 		boolean testConnectivity(long startTime = -1);

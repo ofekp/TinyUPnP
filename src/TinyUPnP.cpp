@@ -164,7 +164,7 @@ boolean TinyUPnP::isGatewayInfoValid(gatewayInfo *deviceInfo) {
 	}
 }
 
-void TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_function fallback) {
+UpdateState TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_function fallback) {
     if (millis() - _lastUpdateTime >= intervalMs) {
 		debugPrintln(F("Updating port mapping"));
 
@@ -181,7 +181,7 @@ void TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_function fal
 				fallback();
 			}
 
-			return;
+			return UpdateState.ERROR;
 		}
 
 		// } else if (_consequtiveFails > 300) {
@@ -195,7 +195,7 @@ void TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_function fal
 		if (!testConnectivity(startTime)) {
 			_lastUpdateTime += intervalMs / 2;  // delay next try
 			_consequtiveFails++;
-			return;
+			return UpdateState.ERROR;
 		}
 		
 		if (verifyPortMapping(&_gwInfo)) {
@@ -203,7 +203,7 @@ void TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_function fal
 			_lastUpdateTime = millis();
 			_wifiClient.stop();
 			_consequtiveFails = 0;
-			return;
+			return UpdateState.ALREADY_MAPPED;
 		}
 		
 		debugPrintln("Adding port mapping");
@@ -212,18 +212,18 @@ void TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_function fal
 			debugPrintln(F("UPnP port mapping was added"));
 			_wifiClient.stop();
 			_consequtiveFails = 0;
-			return;
+			return UpdateState.SUCCESS;
 		} else {
 			_lastUpdateTime += intervalMs / 2;  // delay next try
 			debugPrintln(F("ERROR: While updating UPnP port mapping"));
 			_wifiClient.stop();
 			_consequtiveFails++;
-			return;
+			return UpdateState.ERROR;
 		}
 	}
 
 	_wifiClient.stop();
-	return;
+	return UpdateState.NOP;
 }
 
 boolean TinyUPnP::testConnectivity(long startTime) {
