@@ -17,7 +17,6 @@ const char* password = "<FILL THIS!>";
 #define LISTEN_PORT <FILL THIS!>  // http://<IP>:<LISTEN_PORT>/?name=<your string>
 #define LEASE_DURATION 36000  // seconds
 #define FRIENDLY_NAME "<FILL THIS!>"  // this name will appear in your router port forwarding section
-unsigned long lastUpdateTime = 0;
 
 TinyUPnP tinyUPnP(20000);  // -1 means blocking, preferably, use a timeout value (ms)
 ESP8266WebServer server(LISTEN_PORT);

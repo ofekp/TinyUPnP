@@ -20,9 +20,9 @@ TinyUPnP::TinyUPnP(int timeoutMs = 20000) {
 	_lastUpdateTime = millis();
 	_consequtiveFails = 0;
 
-	debugPrint(F("UDP_TX_PACKET_MAX_SIZE="));
+    debugPrint(F("UDP_TX_PACKET_MAX_SIZE="));
     debugPrintln(String(UDP_TX_PACKET_MAX_SIZE));
-	debugPrint(F("UDP_TX_RESPONSE_MAX_SIZE="));
+    debugPrint(F("UDP_TX_RESPONSE_MAX_SIZE="));
     debugPrintln(String(UDP_TX_RESPONSE_MAX_SIZE));
 }
 
