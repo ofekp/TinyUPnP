@@ -12,8 +12,13 @@ Usage and More Information
 
 You'll need to install few dependencies (Arduino IDE -> Sketch -> Include Library -> Manage Libraries):
 * ESP8266 - For everything...
-* ESP8266Ping - For verifying internet connection.
-* EasyDDNS - For telling your DDNS server the IP of your Gateway Router.
+* EasyDDNS - For telling your DDNS server the IP of your Gateway Router (Optional).
+
+**Include**
+```
+#include "TinyUPnP.h"
+#include <EasyDDNS.h>  // Optional
+```
 
 **Declare**
 ```

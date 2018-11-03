@@ -432,9 +432,10 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
 	Serial.println(packetBuffer[1]);
 	debugPrintln(F("packetBuffer:"));
 	Serial.println((char*) packetBuffer);
+	Serial.println(responseBuffer);
 
 	// only continue if the packet is a response to M-SEARCH and it originated from a gateway device
-	if (strstr(packetBuffer, INTERNET_GATEWAY_DEVICE) == NULL) {
+	if (strstr(responseBuffer, INTERNET_GATEWAY_DEVICE) == NULL) {
 		debugPrintln(F("INTERNET_GATEWAY_DEVICE was not found"));
 		return false;
 	}
@@ -453,14 +454,11 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
 		location_indexStart += 9;  // "location:".length()
 		char* location_indexEnd = strstr(location_indexStart, "\r\n");
 		if (location_indexEnd != NULL) {
-			// when we copy to locationCharArr we are interested in packetBuffer rather than its lower case version
-			// this is because some routers are case sensitive with URLs, refer to issue #14.
 			int urlLength = location_indexEnd - location_indexStart;
 			int arrLength = urlLength + 1;  // + 1 for '\0'
 			// converting the start index to be inside the packetBuffer rather than responseBuffer
-			char* startPtrInPacketBuffer = packetBuffer + (location_indexStart - responseBuffer);
 			char locationCharArr[arrLength];
-			memcpy(locationCharArr, startPtrInPacketBuffer, urlLength);
+			memcpy(locationCharArr, location_indexStart, urlLength);
 			locationCharArr[arrLength - 1] = '\0';
 			location = String(locationCharArr);
 			location.trim();
