@@ -1,79 +1,54 @@
 /*
   Created by Ofek Pearl, September 2017.
 
-  Note: This example includes the library EasyDDNS. You'll have to add this package using your Arduino Library Manager.
+  Note: This is a simple server that does not contain the DDNS update, to have the server available using a simple
+  address such as "<username>.dynu.net" instead of an IP please refer to the PWM_LEDServer example of this package.
 */
 
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
-#include <EasyDDNS.h>  // see note above
 #include <WiFiUdp.h>
 #include "TinyUPnP.h"
 
 // server config
 const char* ssid = "<FILL THIS!>";
 const char* password = "<FILL THIS!>";
-#define LISTEN_PORT <FILL THIS!>  // http://<IP or DDNS>:<LISTEN_PORT>/?percentage=<0..100>
+#define LISTEN_PORT <FILL THIS!>  // http://<IP>:<LISTEN_PORT>/?name=<your string>
 #define LEASE_DURATION 36000  // seconds
 #define FRIENDLY_NAME "<FILL THIS!>"  // this name will appear in your router port forwarding section
-#define DDNS_USERNAME "<FILL THIS!>"
-#define DDNS_PASSWORD "<FILL THIS!>"
-#define DDNS_DOMAIN "<FILL THIS!>"
-unsigned long lastUpdateTime = 0;
 
 TinyUPnP tinyUPnP(20000);  // -1 means blocking, preferably, use a timeout value (ms)
 ESP8266WebServer server(LISTEN_PORT);
-
-const int led = 13;
-const int pin = 4;
-const int delayval = 5;
-
-// 0 <= percentage <= 100
-void setPower(uint32 percentage) {
-  long pwm_val = map(percentage, 0, 100, 0, 1023);
-  if (pwm_val > 1023) {
-    pwm_val = 1023;
-  }
-  analogWrite(pin, pwm_val);
-}
 
 void handleRoot() {
   String message = "Number of args received: ";
   message += server.args();  // get number of parameters
   message += "\n";
-  int percentage = 0;
+  String userName = "";
   for (int i = 0; i < server.args(); i++) {
     message += "Arg #" + (String)i + " => ";
     message += server.argName(i) + ": ";  // get the name of the parameter
     message += server.arg(i) + "\n";  // get the value of the parameter
     
-    if (server.argName(i).equals("percentage")) {
-      percentage = server.arg(i).toInt();
+    if (server.argName(i).equals("name")) {
+      userName = server.arg(i);
     }
   }
 
-  server.send(200, "text/plain", message);       //Response to the HTTP request
+  if (userName.length() > 0) {
+    message += "\n\nHello " + userName + "!";
+  }
 
-  setPower(percentage);
+  server.send(200, "text/plain", message);  // response to the HTTP request
 }
 
 void connectWiFi() {
   WiFi.disconnect();
   delay(1200);
   WiFi.mode(WIFI_STA);
-  //WiFi.setAutoConnect(true);
   Serial.println(F("connectWiFi"));
   WiFi.begin(ssid, password);
-
-  // flash twice to know that we are trying to connect to the WiFi
-  setPower(50);
-  delay(200);
-  setPower(0);
-  delay(200);
-  setPower(50);
-  delay(200);
-  setPower(0);
 
   // wait for connection
   while (WiFi.status() != WL_CONNECTED) {
@@ -89,7 +64,7 @@ void connectWiFi() {
 }
 
 void handleNotFound() {
-  String message = "File Not Found\n\n";
+  String message = "Page Not Found\n\n";
   message += "URI: ";
   message += server.uri();
   message += "\nMethod: ";
@@ -105,8 +80,6 @@ void handleNotFound() {
 
 void setup(void) {
   Serial.begin(115200);
-  pinMode(led, OUTPUT);
-  digitalWrite (led, 0);
   Serial.println(F("Starting..."));
 
   connectWiFi();
@@ -127,35 +100,10 @@ void setup(void) {
   
   Serial.println("UPnP done");
   
-  
-  // DDNS
-  EasyDDNS.service("dynu");
-  EasyDDNS.client(DDNS_DOMAIN, DDNS_USERNAME, DDNS_PASSWORD);
-  
   // server
   if (MDNS.begin("esp8266")) {
     Serial.println(F("MDNS responder started"));
   }
-
-  // fade on and then off to know the device is ready
-  for (int i = 0; i < 100; i++) {
-    setPower(i);
-    delay(delayval);
-  }
-  for (int i = 100; i >= 0; i--) {
-    setPower(i);
-    delay(delayval);
-  }
-  setPower(0);
-  for (int i = 0; i < 100; i++) {
-    setPower(i);
-    delay(delayval);
-  }
-  for (int i = 100; i >= 0; i--) {
-    setPower(i);
-    delay(delayval);
-  }
-  setPower(0);
 
   server.on("/", handleRoot);
 
@@ -178,8 +126,6 @@ void setup(void) {
 
 void loop(void) {
   delay(5);
-
-  EasyDDNS.update(300000);  // check for New IP
 
   tinyUPnP.updatePortMapping(600000, &connectWiFi);  // 10 minutes
 

@@ -1,17 +1,15 @@
 /*
   TinyUPnP.h - Library for creating UPnP rules automatically in your router.
   Created by Ofek Pearl, September 2017.
-  Released into the public domain.
 */
 
 #include "Arduino.h"
 #include "TinyUPnP.h"
-#include "ESP8266Ping.h"
 
 IPAddress ipMulti(239, 255, 255, 250);  // multicast address for SSDP
-IPAddress connectivityTestIp(8, 8, 8, 8);  // Google DNS server
+IPAddress connectivityTestIp(64, 233, 187, 99);  // Google
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet UDP_TX_PACKET_MAX_SIZE=8192
-char packetBufferLowerCase[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet UDP_TX_PACKET_MAX_SIZE=8192
+char responseBuffer[UDP_TX_RESPONSE_MAX_SIZE];
 
 char body_tmp[1200];
 char integer_string[32];
@@ -21,6 +19,11 @@ TinyUPnP::TinyUPnP(int timeoutMs = 20000) {
 	_timeoutMs = timeoutMs;
 	_lastUpdateTime = millis();
 	_consequtiveFails = 0;
+
+    debugPrint(F("UDP_TX_PACKET_MAX_SIZE="));
+    debugPrintln(String(UDP_TX_PACKET_MAX_SIZE));
+    debugPrint(F("UDP_TX_RESPONSE_MAX_SIZE="));
+    debugPrintln(String(UDP_TX_RESPONSE_MAX_SIZE));
 }
 
 TinyUPnP::~TinyUPnP() {
@@ -164,7 +167,7 @@ boolean TinyUPnP::isGatewayInfoValid(gatewayInfo *deviceInfo) {
 	}
 }
 
-void TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_function fallback) {
+UpdateState TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_function fallback) {
     if (millis() - _lastUpdateTime >= intervalMs) {
 		debugPrintln(F("Updating port mapping"));
 
@@ -181,7 +184,7 @@ void TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_function fal
 				fallback();
 			}
 
-			return;
+			return ERROR;
 		}
 
 		// } else if (_consequtiveFails > 300) {
@@ -195,7 +198,7 @@ void TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_function fal
 		if (!testConnectivity(startTime)) {
 			_lastUpdateTime += intervalMs / 2;  // delay next try
 			_consequtiveFails++;
-			return;
+			return ERROR;
 		}
 		
 		if (verifyPortMapping(&_gwInfo)) {
@@ -203,7 +206,7 @@ void TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_function fal
 			_lastUpdateTime = millis();
 			_wifiClient.stop();
 			_consequtiveFails = 0;
-			return;
+			return ALREADY_MAPPED;
 		}
 		
 		debugPrintln("Adding port mapping");
@@ -212,18 +215,18 @@ void TinyUPnP::updatePortMapping(unsigned long intervalMs, callback_function fal
 			debugPrintln(F("UPnP port mapping was added"));
 			_wifiClient.stop();
 			_consequtiveFails = 0;
-			return;
+			return SUCCESS;
 		} else {
 			_lastUpdateTime += intervalMs / 2;  // delay next try
 			debugPrintln(F("ERROR: While updating UPnP port mapping"));
 			_wifiClient.stop();
 			_consequtiveFails++;
-			return;
+			return ERROR;
 		}
 	}
 
 	_wifiClient.stop();
-	return;
+	return NOP;
 }
 
 boolean TinyUPnP::testConnectivity(long startTime) {
@@ -243,13 +246,18 @@ boolean TinyUPnP::testConnectivity(long startTime) {
 	debugPrintln(" ==> GOOD");  // \n
 
 	debugPrint(F("Testing internet connection"));
-	if (Ping.ping(connectivityTestIp)) {
-		debugPrintln(F(" ==> GOOD"));
-		return true;
-	} else {
-		debugPrintln(F(" ==> BAD"));
-		return false;
+	_wifiClient.connect(connectivityTestIp, 80);
+	while (!_wifiClient.connected()) {
+		if (startTime + TCP_CONNECTION_TIMEOUT_MS > millis()) {
+			debugPrintln(F(" ==> BAD"));
+			_wifiClient.stop();
+			return false;
+		}
 	}
+
+	debugPrintln(F(" ==> GOOD"));
+	_wifiClient.stop();
+	return true;
 }
 
 boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo) {
@@ -393,17 +401,29 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
 	debugPrint(F("] port ["));
 	debugPrint(String(_udpClient.remotePort()));
 	debugPrintln(F("]"));
-  
-	memset(packetBuffer, 0, UDP_TX_PACKET_MAX_SIZE);
-	int len = _udpClient.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
-	if (len > 0 && len < UDP_TX_PACKET_MAX_SIZE) {
-		debugPrint(F("UDP packet read bytes ["));
-		debugPrint(String(len));
-		debugPrintln(F("]"));
-		packetBuffer[len] = '\0';
-	} else {
+
+	// sanity check
+	if (packetSize > UDP_TX_RESPONSE_MAX_SIZE) {
+		debugPrint(F("Received packet with size larged than the response buffer, cannot proceed."));
 		return false;
 	}
+  
+	int idx = 0;
+	while (idx < packetSize) {
+		memset(packetBuffer, 0, UDP_TX_PACKET_MAX_SIZE);
+		int len = _udpClient.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
+		if (len <= 0) {
+			break;
+		}
+		debugPrint(F("UDP packet read bytes ["));
+		debugPrint(String(len));
+		debugPrint(F("] out of ["));
+		debugPrint(String(packetSize));
+		debugPrintln(F("]"));
+		memcpy(responseBuffer + idx, packetBuffer, len);
+		idx += len;
+	}
+	responseBuffer[idx] = '\0';
 
 	debugPrintln(F("Gateway packet content (many variations for debug):"));
 	debugPrintln(F("char at 0"));
@@ -412,36 +432,33 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
 	Serial.println(packetBuffer[1]);
 	debugPrintln(F("packetBuffer:"));
 	Serial.println((char*) packetBuffer);
+	Serial.println(responseBuffer);
 
 	// only continue if the packet is a response to M-SEARCH and it originated from a gateway device
-	if (strstr(packetBuffer, INTERNET_GATEWAY_DEVICE) == NULL) {
+	if (strstr(responseBuffer, INTERNET_GATEWAY_DEVICE) == NULL) {
 		debugPrintln(F("INTERNET_GATEWAY_DEVICE was not found"));
 		return false;
 	}
 
 	debugPrintln(F("INTERNET_GATEWAY_DEVICE found"));
 
-	// extract location from message
-	int i;
-	for (i = 0; i < len; i++) {
-		packetBufferLowerCase[i] = tolower(packetBuffer[i]);
-	}
-	packetBufferLowerCase[i] = '\0';
-
 	String location = "";
-	char* location_indexStart = strstr(packetBufferLowerCase, "location:");  // lower case since we look for match in responseLowerCase
+	char* location_indexStart = strstr(responseBuffer, "location:");
+	if (location_indexStart == NULL) {
+		location_indexStart = strstr(responseBuffer, "Location:");
+	}
+	if (location_indexStart == NULL) {
+		location_indexStart = strstr(responseBuffer, "LOCATION:");
+	}
 	if (location_indexStart != NULL) {
 		location_indexStart += 9;  // "location:".length()
 		char* location_indexEnd = strstr(location_indexStart, "\r\n");
 		if (location_indexEnd != NULL) {
-			// when we copy to locationCharArr we are interested in packetBuffer rather than its lower case version
-			// this is because some routers are case sensitive with URLs, refer to issue #14.
 			int urlLength = location_indexEnd - location_indexStart;
 			int arrLength = urlLength + 1;  // + 1 for '\0'
-			// converting the start index to be inside the packetBuffer rather than packetBufferLowerCase
-			char* startPtrInPacketBuffer = packetBuffer + (location_indexStart - packetBufferLowerCase);
+			// converting the start index to be inside the packetBuffer rather than responseBuffer
 			char locationCharArr[arrLength];
-			memcpy(locationCharArr, startPtrInPacketBuffer, urlLength);
+			memcpy(locationCharArr, location_indexStart, urlLength);
 			locationCharArr[arrLength - 1] = '\0';
 			location = String(locationCharArr);
 			location.trim();

@@ -25,6 +25,9 @@
 
 #define MAX_NUM_OF_UPDATES_WITH_NO_EFFECT 6  // after 10 tries of updatePortMapping we will execute the more extensive addPortMapping
 
+#define UDP_TX_PACKET_MAX_SIZE 1000  // reduce max UDP packet size to conserve memory (by default UDP_TX_PACKET_MAX_SIZE=8192)
+#define UDP_TX_RESPONSE_MAX_SIZE 8192
+
 const String UPNP_SERVICE_TYPE_1 = "urn:schemas-upnp-org:service:WANPPPConnection:1";
 const String UPNP_SERVICE_TYPE_2 = "urn:schemas-upnp-org:service:WANIPConnection:1";
 const String UPNP_SERVICE_TYPE_TAG_START = "<serviceType>";
@@ -59,6 +62,13 @@ typedef struct _upnpRuleNode {
 	_upnpRuleNode *next_ptr;
 } upnpRuleNode;
 
+enum UpdateState {
+	ALREADY_MAPPED,  // the port mapping is already found in the IGD
+	SUCCESS,  // port mapping was added
+	NOP,  // the check is delayed
+	ERROR
+};
+
 class TinyUPnP
 {
 	public:
@@ -66,7 +76,7 @@ class TinyUPnP
 		~TinyUPnP();
 		boolean addPortMapping();
 		void setMappingConfig(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName);
-		void updatePortMapping(unsigned long intervalMs, callback_function fallback);
+		UpdateState updatePortMapping(unsigned long intervalMs, callback_function fallback /* optional */);
 		boolean printAllPortMappings();
 		boolean verifyPortMapping(gatewayInfo *deviceInfo);
 		boolean testConnectivity(long startTime = -1);
