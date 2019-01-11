@@ -47,7 +47,7 @@ tinyUPnP->printAllPortMappings();
 ```
 **Debug**
 
-You can turn off debug prints by setting `IS_DEBUG` to `false` in [TinyUPnP.h#L15](https://github.com/ofekp/TinyUPnP/blob/master/src/TinyUPnP.h#L15)
+You can turn off debug prints by setting `IS_DEBUG` to `false` in [TinyUPnP.h#L16](https://github.com/ofekp/TinyUPnP/blob/master/src/TinyUPnP.h#L16)
 
 Issues
 =
