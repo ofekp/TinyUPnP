@@ -53,9 +53,11 @@ Issues
 =
 When reporting issues, attach full log (i.e `IS_DEBUG` is set to `true`) and add the serial output to the issue, preferably as a text file.
 
-Beer
+Donation
 =
-If you like what I got, support me by buying me a :beer: [Beer](https://www.paypal.me/ofekpearl/5usd) and cheers to you!
+[![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif)](https://www.paypal.me/ofekpearl/1usd) If you like what I got, you can consider donating here, you can change the amount as you like.
+
+:star: If not, starring this project will go a long way to help me too!
 
 For anyone interested in how the library works
 =
