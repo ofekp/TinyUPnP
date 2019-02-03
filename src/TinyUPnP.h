@@ -13,7 +13,7 @@
 #include <WiFiClient.h>
 #include <limits.h>
 
-// #define UPNP_DEBUG
+#define UPNP_DEBUG
 #define UPNP_SSDP_PORT 1900
 #define TCP_CONNECTION_TIMEOUT_MS 6000
 #define INTERNET_GATEWAY_DEVICE "urn:schemas-upnp-org:device:InternetGatewayDevice:1"

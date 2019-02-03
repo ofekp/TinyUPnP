@@ -322,7 +322,7 @@ void TinyUPnP::broadcastMSearch() {
 	String packet = F("M-SEARCH * HTTP/1.1\r\n");
 	packet += F("HOST: 239.255.255.250:1900\r\n");
 	packet += F("MAN: \"ssdp:discover\"\r\n");
-	packet += F("MX: 5\r\n");
+	packet += F("MX: 2\r\n");
 	packet += "ST: " + String(INTERNET_GATEWAY_DEVICE) + "\r\n\r\n";
 
 
@@ -534,13 +534,15 @@ upnpResult TinyUPnP::postSOAPAction(gatewayInfo *deviceInfo, _upnpRule *rule_ptr
 		}
 	}
 	upnpResult response = UNDEFINED_ERROR;
+	int paramFlag = 0;
+	String tagContent = "";
 
 	while (_wifiClient.available()) {
 		String line = _wifiClient.readStringUntil('\r');
 		UPNP_DEBUG(line);
 		if (line.indexOf(F("<errorCode>")) >= 0){
 			response = (upnpResult)getTagContent(line, "errorCode").toInt();
-		}else if (SOAPAction == GetGenericPortMappingEntry){
+		}else if (SOAPAction == GetGenericPortMappingEntry && response != UPNP_OK){
 			if (line.indexOf(F("HTTP/1.1 500 ")) >= 0) {
 				UPNP_DEBUG(F(" >>>> likely because we have shown all the mappings"));
 				response = INVALID_INDEX;
@@ -556,43 +558,102 @@ upnpResult TinyUPnP::postSOAPAction(gatewayInfo *deviceInfo, _upnpRule *rule_ptr
 				rule_ptr->protocol = getTagContent(line, "NewProtocol");
 				rule_ptr->leaseDuration = getTagContent(line, "NewLeaseDuration").toInt();
 				response = UPNP_OK;
-			}else{
-				response = INVALID_INDEX;
+			// }else{ 
+			// 	response = INVALID_INDEX;
 			}
-		}else if (SOAPAction == AddPortMapping){
+		}else if (SOAPAction == AddPortMapping && response != UPNP_OK){
 			if (line.indexOf((SOAPActions[AddPortMapping]+String("Response"))) >= 0){
 				UPNP_DEBUGln("AddPortMappingResponse OK");
 				response = UPNP_OK;
 			}
-		}else if (SOAPAction == GetSpecificPortMappingEntry){
-			if (line.indexOf((SOAPActions[GetSpecificPortMappingEntry]+String("Response"))) >= 0){
+		}else if (SOAPAction == GetSpecificPortMappingEntry && response != UPNP_OK){
+			if ( !(paramFlag & 0x01) && line.indexOf((SOAPActions[GetSpecificPortMappingEntry]+String("Response"))) >= 0){
+				paramFlag |= 0x01;	// Response OK
+				UPNP_DEBUGln("Response recived");
+			}
+			if( !(paramFlag & 0x02) && (paramFlag & 0x01) ){	//Check for NewPortMappingDescription
+				tagContent = getTagContent(line, "NewPortMappingDescription");
+				if(tagContent != ""){
+					rule_ptr->devFriendlyName = tagContent;
+					tagContent = "";
+					paramFlag |= 0x02;
+					UPNP_DEBUGln("Found NewPortMappingDescription");
+				}
+			}
+			if( !(paramFlag & 0x04) && (paramFlag & 0x01) ){	//Check for InternallIPAddress
+				tagContent = getTagContent(line, "NewInternalClient");
+				if(tagContent != ""){
+					rule_ptr->internalAddr.fromString(tagContent);
+					tagContent = "";
+					paramFlag |= 0x04;
+					UPNP_DEBUGln("Found NewInternalClient");
+				}
+			}
+			if( !(paramFlag & 0x08) && (paramFlag & 0x01) ){	//Check for NewInternalPort
+				tagContent =  getTagContent(line, "NewInternalPort");
+				if(tagContent != ""){
+					rule_ptr->internalPort = tagContent.toInt();
+					tagContent = "";
+					paramFlag |= 0x08;
+					UPNP_DEBUGln("Found NewInternalPort");
+				}
+			}
+			if( !(paramFlag & 0x10) && (paramFlag & 0x01) ){	//Check for NewInternalPort
+				tagContent =  getTagContent(line, "NewLeaseDuration");
+				if(tagContent != ""){
+					rule_ptr->leaseDuration = tagContent.toInt();
+					tagContent = "";
+					paramFlag |= 0x10;
+					UPNP_DEBUGln("Found NewLeaseDuration");
+				}
+			}
+			if(paramFlag == 0x1F){
+				UPNP_DEBUGln("Response OK");
+				response = UPNP_OK;
+			}
+			/*if (line.indexOf((SOAPActions[GetSpecificPortMappingEntry]+String("Response"))) >= 0){
 				rule_ptr->devFriendlyName = getTagContent(line, "NewPortMappingDescription");
 				String newInternalClient = getTagContent(line, "NewInternalClient");
 				rule_ptr->internalAddr.fromString(newInternalClient);
 				rule_ptr->internalPort = getTagContent(line, "NewInternalPort").toInt();
 				rule_ptr->leaseDuration = getTagContent(line, "NewLeaseDuration").toInt();
 				response = UPNP_OK;
-			}
-		}else if (SOAPAction == DeletePortMapping){
+			}*/
+		}else if (SOAPAction == DeletePortMapping && response != UPNP_OK){
 			if (line.indexOf((SOAPActions[DeletePortMapping]+String("Response"))) >= 0){
 				response = UPNP_OK;
 			}
-		}else if(SOAPAction == GetExternalIPAddress){
-			if (line.indexOf((SOAPActions[GetExternalIPAddress]+String("Response"))) >= 0){
+		}else if(SOAPAction == GetExternalIPAddress && response != UPNP_OK){
+			if ( !(paramFlag & 0x01) && line.indexOf((SOAPActions[GetExternalIPAddress]+String("Response"))) >= 0){
+				paramFlag |= 0x01;	// Response OK
+				UPNP_DEBUGln("Response recived");
+			}
+			if( !(paramFlag & 0x02) && (paramFlag & 0x01) ){	//Check for NewExternalIPAddress
+				tagContent = getTagContent(line, "NewExternalIPAddress");
+				if(tagContent != ""){
+					rule_ptr->internalAddr.fromString(tagContent);
+					paramFlag |= 0x02;
+					UPNP_DEBUGln("Found NewExternalIPAddress");
+				}
+			}
+			if(paramFlag == 0x03){
+				UPNP_DEBUGln("Response OK");
+				response = UPNP_OK;
+			}
+			/*if (line.indexOf((SOAPActions[GetExternalIPAddress]+String("Response"))) >= 0){
 				String NewExternalIPAddress = getTagContent(line, "NewExternalIPAddress");
 				rule_ptr->internalAddr.fromString(NewExternalIPAddress);
 				response = UPNP_OK;
-			}
+			}*/
 		}
-		if (line.indexOf(F("</s:Envelope>")) >= 0){
-			UPNP_DEBUGln("\nEnd of Response");
+		if (line.indexOf(F("</s:Envelope>")) >= 0 || response == UPNP_OK){
+			UPNP_DEBUGln("\nEnd of Response or Flush");
 			while (_wifiClient.available()) {
-				_wifiClient.read();
+				UPNP_DEBUG((char)_wifiClient.read());
 			}
 			break;
 		}
 	}
-
 	return response;
 }
 
@@ -643,7 +704,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	// read all the lines of the reply from server
 	boolean upnpServiceFound = false;
 	boolean controlURLFound = false;
-	boolean urlBaseFound = false;
+	boolean urlBaseFound = true;		// don't llok for it
 	while (_wifiClient.available()) {
 		String line = _wifiClient.readStringUntil('\r');
 		int index_in_line = 0;
