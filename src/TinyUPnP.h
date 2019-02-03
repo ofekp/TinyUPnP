@@ -105,7 +105,6 @@ class TinyUPnP
 		boolean printAllPortMappings();
 		void printAllRules();		// TODO
 		upnpResult testConnectivity(unsigned long startTime = 0);
-		unsigned long _lastUpdateTime;
 		IPAddress getExternalIP();
 	private:
 		boolean connectUDP();
@@ -127,10 +126,10 @@ class TinyUPnP
 		IPAddress getHost(String url);
 		int getPort(String url);
 		String getPath(String url);
-		String getTagContent(String line, String tagName);
+		String getTagContent(String &line, String tagName, int startIndex = -1);
 
 		upnpRuleNode *_headRuleNode;
-
+		unsigned long _lastUpdateTime;
 		unsigned long _timeoutMs;  // 0 for blocking operation
 		WiFiUDP _udpClient;
 		WiFiClient _wifiClient;

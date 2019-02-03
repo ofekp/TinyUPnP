@@ -323,7 +323,8 @@ void TinyUPnP::broadcastMSearch() {
 	packet += F("HOST: 239.255.255.250:1900\r\n");
 	packet += F("MAN: \"ssdp:discover\"\r\n");
 	packet += F("MX: 2\r\n");
-	packet += "ST: " + String(INTERNET_GATEWAY_DEVICE) + "\r\n\r\n";
+	packet += "ST: " + String(INTERNET_GATEWAY_DEVICE) + "\r\n";	
+	packet += F("USER-AGENT: NO-OS/2.4.0 UPnP/1.1 ESP8266/1.0\r\n\r\n");
 
 
 	_udpClient.print(packet);
@@ -546,28 +547,8 @@ upnpResult TinyUPnP::postSOAPAction(gatewayInfo *deviceInfo, _upnpRule *rule_ptr
 			if (line.indexOf(F("HTTP/1.1 500 ")) >= 0) {
 				UPNP_DEBUG(F(" >>>> likely because we have shown all the mappings"));
 				response = INVALID_INDEX;
-			} else if (line.indexOf((SOAPActions[GetGenericPortMappingEntry]+String("Response")))  >= 0) {
-				rule_ptr->devFriendlyName = getTagContent(line, "NewPortMappingDescription");
-				String newInternalClient = getTagContent(line, "NewInternalClient");
-				if (newInternalClient == "") {
-					continue;
-				}
-				rule_ptr->internalAddr.fromString(newInternalClient);
-				rule_ptr->internalPort = getTagContent(line, "NewInternalPort").toInt();
-				rule_ptr->externalPort = getTagContent(line, "NewExternalPort").toInt();
-				rule_ptr->protocol = getTagContent(line, "NewProtocol");
-				rule_ptr->leaseDuration = getTagContent(line, "NewLeaseDuration").toInt();
-				response = UPNP_OK;
-			// }else{ 
-			// 	response = INVALID_INDEX;
-			}
-		}else if (SOAPAction == AddPortMapping && response != UPNP_OK){
-			if (line.indexOf((SOAPActions[AddPortMapping]+String("Response"))) >= 0){
-				UPNP_DEBUGln("AddPortMappingResponse OK");
-				response = UPNP_OK;
-			}
-		}else if (SOAPAction == GetSpecificPortMappingEntry && response != UPNP_OK){
-			if ( !(paramFlag & 0x01) && line.indexOf((SOAPActions[GetSpecificPortMappingEntry]+String("Response"))) >= 0){
+				paramFlag |= 0x80;
+			} else if( !(paramFlag & 0x01) && line.indexOf((SOAPActions[GetGenericPortMappingEntry]+String("Response")))  >= 0){
 				paramFlag |= 0x01;	// Response OK
 				UPNP_DEBUGln("Response recived");
 			}
@@ -598,7 +579,93 @@ upnpResult TinyUPnP::postSOAPAction(gatewayInfo *deviceInfo, _upnpRule *rule_ptr
 					UPNP_DEBUGln("Found NewInternalPort");
 				}
 			}
-			if( !(paramFlag & 0x10) && (paramFlag & 0x01) ){	//Check for NewInternalPort
+			if( !(paramFlag & 0x10) && (paramFlag & 0x01) ){	//Check for NewExternalPort
+				tagContent =  getTagContent(line, "NewExternalPort");
+				if(tagContent != ""){
+					rule_ptr->externalPort = tagContent.toInt();
+					tagContent = "";
+					paramFlag |= 0x10;
+					UPNP_DEBUGln("Found NewExternalPort");
+				}
+			}
+			if( !(paramFlag & 0x20) && (paramFlag & 0x01) ){	//Check for NewProtocol
+				tagContent =  getTagContent(line, "NewProtocol");
+				if(tagContent != ""){
+					rule_ptr->protocol = tagContent;
+					tagContent = "";
+					paramFlag |= 0x20;
+					UPNP_DEBUGln("Found NewProtocol");
+				}
+			}
+			if( !(paramFlag & 0x40) && (paramFlag & 0x01) ){	//Check for NewLeaseDuration
+				tagContent =  getTagContent(line, "NewLeaseDuration");
+				if(tagContent != ""){
+					rule_ptr->leaseDuration = tagContent.toInt();
+					tagContent = "";
+					paramFlag |= 0x40;
+					UPNP_DEBUGln("Found NewLeaseDuration");
+				}
+			}
+			if(paramFlag == 0x7F){
+				UPNP_DEBUGln("Response OK");
+				response = UPNP_OK;
+			}
+
+			/*if (line.indexOf((SOAPActions[GetGenericPortMappingEntry]+String("Response")))  >= 0) {
+				rule_ptr->devFriendlyName = getTagContent(line, "NewPortMappingDescription");
+				String newInternalClient = getTagContent(line, "NewInternalClient");
+				if (newInternalClient == "") {
+					continue;
+				}
+				rule_ptr->internalAddr.fromString(newInternalClient);
+				rule_ptr->internalPort = getTagContent(line, "NewInternalPort").toInt();
+				rule_ptr->externalPort = getTagContent(line, "NewExternalPort").toInt();
+				rule_ptr->protocol = getTagContent(line, "NewProtocol");
+				rule_ptr->leaseDuration = getTagContent(line, "NewLeaseDuration").toInt();
+				response = UPNP_OK;
+			}*/
+		}else if (SOAPAction == AddPortMapping && response != UPNP_OK){
+			if (line.indexOf((SOAPActions[AddPortMapping]+String("Response"))) >= 0){
+				UPNP_DEBUGln("AddPortMappingResponse OK");
+				response = UPNP_OK;
+			}
+		}else if (SOAPAction == GetSpecificPortMappingEntry && response != UPNP_OK){
+			if (line.indexOf(F("HTTP/1.1 500 ")) >= 0) {
+				UPNP_DEBUG(F(" >>>> likely because verification failed"));
+				response = INVALID_INDEX;
+				paramFlag |= 0x80;
+			} else if ( !(paramFlag & 0x01) && line.indexOf((SOAPActions[GetSpecificPortMappingEntry]+String("Response"))) >= 0){
+				paramFlag |= 0x01;	// Response OK
+				UPNP_DEBUGln("Response recived");
+			}
+			if( !(paramFlag & 0x02) && (paramFlag & 0x01) ){	//Check for NewPortMappingDescription
+				tagContent = getTagContent(line, "NewPortMappingDescription");
+				if(tagContent != ""){
+					rule_ptr->devFriendlyName = tagContent;
+					tagContent = "";
+					paramFlag |= 0x02;
+					UPNP_DEBUGln("Found NewPortMappingDescription");
+				}
+			}
+			if( !(paramFlag & 0x04) && (paramFlag & 0x01) ){	//Check for InternallIPAddress
+				tagContent = getTagContent(line, "NewInternalClient");
+				if(tagContent != ""){
+					rule_ptr->internalAddr.fromString(tagContent);
+					tagContent = "";
+					paramFlag |= 0x04;
+					UPNP_DEBUGln("Found NewInternalClient");
+				}
+			}
+			if( !(paramFlag & 0x08) && (paramFlag & 0x01) ){	//Check for NewInternalPort
+				tagContent =  getTagContent(line, "NewInternalPort");
+				if(tagContent != ""){
+					rule_ptr->internalPort = tagContent.toInt();
+					tagContent = "";
+					paramFlag |= 0x08;
+					UPNP_DEBUGln("Found NewInternalPort");
+				}
+			}
+			if( !(paramFlag & 0x10) && (paramFlag & 0x01) ){	//Check for NewLeaseDuration
 				tagContent =  getTagContent(line, "NewLeaseDuration");
 				if(tagContent != ""){
 					rule_ptr->leaseDuration = tagContent.toInt();
@@ -646,8 +713,9 @@ upnpResult TinyUPnP::postSOAPAction(gatewayInfo *deviceInfo, _upnpRule *rule_ptr
 				response = UPNP_OK;
 			}*/
 		}
-		if (line.indexOf(F("</s:Envelope>")) >= 0 || response == UPNP_OK){
-			UPNP_DEBUGln("\nEnd of Response or Flush");
+		if (response == UPNP_OK || response == INVALID_INDEX || response == 714 || line.indexOf(F("</s:Envelope>")) >= 0){
+			UPNP_DEBUG("\nEnd of Response or Flush due to Response:");
+			UPNP_DEBUGln(response);
 			while (_wifiClient.available()) {
 				UPNP_DEBUG((char)_wifiClient.read());
 			}
@@ -704,7 +772,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	// read all the lines of the reply from server
 	boolean upnpServiceFound = false;
 	boolean controlURLFound = false;
-	boolean urlBaseFound = true;		// don't llok for it
+	boolean urlBaseFound = true;		// don't look for it
 	while (_wifiClient.available()) {
 		String line = _wifiClient.readStringUntil('\r');
 		int index_in_line = 0;
@@ -733,10 +801,10 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			}
 		}
 		
-		
+		/*
 		int service_type_1_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_1 + UPNP_SERVICE_TYPE_TAG_END);
 		int service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_2 + UPNP_SERVICE_TYPE_TAG_END);
-
+		
 		if (!upnpServiceFound && urlBaseFound && service_type_1_index >= 0) {
 			index_in_line += service_type_1_index;
 			UPNP_DEBUGln(UPNP_SERVICE_TYPE_1 + " service found!");
@@ -749,10 +817,31 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			upnpServiceFound = true;
 			deviceInfo->serviceTypeName = UPNP_SERVICE_TYPE_2;
 			// will start looking for 'controlURL' now
+		}*/
+		if (!upnpServiceFound && urlBaseFound){
+			int service_type_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_1 + UPNP_SERVICE_TYPE_TAG_END);
+			if(service_type_index >= 0){
+				index_in_line += service_type_index;
+				UPNP_DEBUGln(UPNP_SERVICE_TYPE_1 + " service found!");
+				upnpServiceFound = true;
+				deviceInfo->serviceTypeName = UPNP_SERVICE_TYPE_1;
+				// will start looking for 'controlURL' now
+			}else{
+				service_type_index =line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_2 + UPNP_SERVICE_TYPE_TAG_END);
+				if(service_type_index >= 0){
+					index_in_line += service_type_index;
+					UPNP_DEBUGln(UPNP_SERVICE_TYPE_2 + " service found!");
+					upnpServiceFound = true;
+					deviceInfo->serviceTypeName = UPNP_SERVICE_TYPE_2;
+					// will start looking for 'controlURL' now
+				}
+			}
 		}
+
+
 		
 		if (!controlURLFound && upnpServiceFound && (index_in_line = line.indexOf("<controlURL>", index_in_line)) >= 0) {
-			String controlURLContent = getTagContent(line.substring(index_in_line), "controlURL");
+			String controlURLContent = getTagContent(line/*.substring(index_in_line)*/, "controlURL", index_in_line);
 			if (controlURLContent.length() > 0) {
 				deviceInfo->actionPath = controlURLContent;
 				controlURLFound = true;
@@ -779,7 +868,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 boolean TinyUPnP::addPortMappingEntry(gatewayInfo *deviceInfo, _upnpRule *rule_ptr) {
 	UPNP_DEBUGln(F("called addPortMappingEntry"));
 	upnpResult result = postSOAPAction(deviceInfo, rule_ptr, AddPortMapping);
-	_wifiClient.stop();
+	//_wifiClient.stop();
 	if (result != UPNP_OK){
 		UPNP_DEBUG("Error:");
 		UPNP_DEBUGln(String(result));
@@ -982,8 +1071,10 @@ String TinyUPnP::getPath(String url) {
   return url.substring(firstSlashIndex, url.length());
 }
 
-String TinyUPnP::getTagContent(String line, String tagName) {
-  int startIndex = line.indexOf("<" + tagName + ">");
+String TinyUPnP::getTagContent(String &line, String tagName, int startIndex) {
+  if (startIndex == -1) {
+		startIndex = line.indexOf("<" + tagName + ">");
+	}
   if (startIndex == -1) {
 	UPNP_DEBUG(F("ERROR: Cannot find tag content in line ["));
 	UPNP_DEBUG(line);
