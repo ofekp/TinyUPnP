@@ -41,10 +41,23 @@ void TinyUPnP::setMappingConfig(IPAddress ruleIP, int rulePort, String ruleProto
 	new_rule_ptr->protocol = ruleProtocol;
 	new_rule_ptr->devFriendlyName = ruleFriendlyName;
 	// linked list insert
+
 	_upnpRuleNode *newRuleNode = new _upnpRuleNode();
 	newRuleNode->rule_ptr = new_rule_ptr;
-	newRuleNode->next_ptr = _headRuleNode;
-	_headRuleNode = newRuleNode;
+	
+	// newRuleNode->next_ptr = _headRuleNode;
+	// _headRuleNode = newRuleNode;
+	
+	newRuleNode->next_ptr = NULL;
+	if(_headRuleNode == NULL){
+		_headRuleNode = newRuleNode;
+	}else{
+		_upnpRuleNode *cur = _headRuleNode;
+		while(cur->next_ptr != NULL){
+			cur = cur->next_ptr;
+		}
+		cur->next_ptr = newRuleNode;
+	}
 	index++;
 }
 
