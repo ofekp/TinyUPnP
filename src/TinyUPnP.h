@@ -13,7 +13,7 @@
 #include <WiFiClient.h>
 #include <limits.h>
 
-#define IS_DEBUG true
+#define UPNP_DEBUG
 #define UPNP_SSDP_PORT 1900
 #define TCP_CONNECTION_TIMEOUT_MS 6000
 #define INTERNET_GATEWAY_DEVICE "urn:schemas-upnp-org:device:InternetGatewayDevice:1"
@@ -32,6 +32,36 @@ const String UPNP_SERVICE_TYPE_1 = "urn:schemas-upnp-org:service:WANPPPConnectio
 const String UPNP_SERVICE_TYPE_2 = "urn:schemas-upnp-org:service:WANIPConnection:1";
 const String UPNP_SERVICE_TYPE_TAG_START = "<serviceType>";
 const String UPNP_SERVICE_TYPE_TAG_END = "</serviceType>";
+
+// TODO: idealy the SOAP actions should be verified as supported by the IGD before they are used
+// 		 a struct can be created for each action and filled when the XML descriptor file is read
+/*const String SOAPActions [] = {
+	"AddPortMapping",
+	"GetSpecificPortMappingEntry",
+	"DeletePortMapping",
+	"GetGenericPortMappingEntry",
+	"GetExternalIPAddress"
+};
+
+enum e_SOAPActions{
+	AddPortMapping,
+	GetSpecificPortMappingEntry,
+	DeletePortMapping,
+	GetGenericPortMappingEntry,
+	GetExternalIPAddress
+};*/
+
+/*
+#define SOAP_ERROR_TAG "errorDescription";
+const String SOAPErrors [] = {
+	"SpecifiedArrayIndexInvalid",
+	"Invalid Action"
+};*/
+
+/*
+enum soapActionResult {
+// TODO
+}*/
 
 typedef void (*callback_function)(void);
 
@@ -58,59 +88,53 @@ typedef struct _upnpRule {
 } upnpRule;
 
 typedef struct _upnpRuleNode {
-	_upnpRule *rule_ptr;
-	_upnpRuleNode *next_ptr;
+	_upnpRule *upnpRule;
+	_upnpRuleNode *next;
 } upnpRuleNode;
 
-enum UpdateState {
-	ALREADY_MAPPED,  // the port mapping is already found in the IGD
+enum portMappingResult {
 	SUCCESS,  // port mapping was added
-	NOP,  // the check is delayed
-	ERROR
+	ALREADY_MAPPED,  // the port mapping is already found in the IGD
+	EMPTY_PORT_MAPPING_CONFIG,
+	NETWORK_ERROR,
+	TIMEOUT,
+	NOP  // the check is delayed
 };
 
 class TinyUPnP
 {
 	public:
-		TinyUPnP(int timeoutMs);
+		TinyUPnP(unsigned long timeoutMs);
 		~TinyUPnP();
-		boolean addPortMapping();
-		void setMappingConfig(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName);
-		UpdateState updatePortMapping(unsigned long intervalMs, callback_function fallback /* optional */);
+		void addPortMappingConfig(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName);
+		portMappingResult commitPortMappings();
+		portMappingResult updatePortMappings(unsigned long intervalMs, callback_function fallback = NULL /* optional */);
 		boolean printAllPortMappings();
-		boolean verifyPortMapping(gatewayInfo *deviceInfo);
-		boolean testConnectivity(long startTime = -1);
-		void clearGatewayInfo();
+		void printPortMappingConfig();  // prints all the port mappings that were added using `addPortMappingConfig`
+		boolean testConnectivity(unsigned long startTime = 0);
 	private:
 		boolean connectUDP();
 		void broadcastMSearch();
 		boolean waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAddress gatewayIP);
 		boolean getGatewayInfo(gatewayInfo *deviceInfo, long startTime);
 		boolean isGatewayInfoValid(gatewayInfo *deviceInfo);
+		void clearGatewayInfo(gatewayInfo *deviceInfo);
 		boolean connectToIGD(IPAddress host, int port);
 		boolean getIGDEventURLs(gatewayInfo *deviceInfo);
-		boolean addPortMappingEntry(gatewayInfo *deviceInfo);
-		boolean printAllRules(gatewayInfo *deviceInfo);
-		IPAddress ipToAddress(String ip);
-		char* ipAddressToCharArr(IPAddress ipAddress);  // ?? not sure this is needed
-		String ipAddressToString(IPAddress ipAddress);
-		String upnpRuleToString(upnpRule *rule_ptr);
+		boolean addPortMappingEntry(gatewayInfo *deviceInfo, upnpRule *rule_ptr);
+		boolean verifyPortMapping(gatewayInfo *deviceInfo, upnpRule *rule_ptr);
+		//char* ipAddressToCharArr(IPAddress ipAddress);  // ?? not sure this is needed
+		void upnpRuleToString(upnpRule *rule_ptr);
 		String getSpacesString(int num);
 		IPAddress getHost(String url);
 		int getPort(String url);
 		String getPath(String url);
-		String getTagContent(String line, String tagName);
-		void debugPrint(String message);
-		void debugPrintln(String message);
+		String getTagContent(const String &line, String tagName);
 
 		/* members */
-		IPAddress _ruleIP;
-		int _rulePort;
-		String _ruleProtocol;  // _ruleProtocol - either "TCP" or "UDP"
-		int _ruleLeaseDuration;
-		String _ruleFriendlyName;
+		upnpRuleNode *_headRuleNode;
 		unsigned long _lastUpdateTime;
-		int _timeoutMs;  // -1 for blocking operation
+		unsigned long _timeoutMs;  // 0 for blocking operation
 		WiFiUDP _udpClient;
 		WiFiClient _wifiClient;
 		gatewayInfo _gwInfo;
