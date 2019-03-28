@@ -41,14 +41,6 @@ const String UPNP_SERVICE_TYPE_TAG_END = "</serviceType>";
 	"DeletePortMapping",
 	"GetGenericPortMappingEntry",
 	"GetExternalIPAddress"
-};
-
-enum e_SOAPActions{
-	AddPortMapping,
-	GetSpecificPortMappingEntry,
-	DeletePortMapping,
-	GetGenericPortMappingEntry,
-	GetExternalIPAddress
 };*/
 
 /*
@@ -62,6 +54,10 @@ const String SOAPErrors [] = {
 enum soapActionResult {
 // TODO
 }*/
+
+typedef struct _SOAPAction {
+	const char *name;
+} SOAPAction;
 
 typedef void (*callback_function)(void);
 
@@ -106,7 +102,9 @@ class TinyUPnP
 	public:
 		TinyUPnP(unsigned long timeoutMs);
 		~TinyUPnP();
-		void addPortMappingConfig(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName);
+		// when the ruleIP is set to the current device IP, the IP of the rule will change if the device changes its IP
+		// this makes sure the traffic will be directed to the device even if the IP chnages
+		void addPortMappingConfig(IPAddress ruleIP /* can be NULL */, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName);
 		portMappingResult commitPortMappings();
 		portMappingResult updatePortMappings(unsigned long intervalMs, callback_function fallback = NULL /* optional */);
 		boolean printAllPortMappings();
@@ -123,6 +121,9 @@ class TinyUPnP
 		boolean getIGDEventURLs(gatewayInfo *deviceInfo);
 		boolean addPortMappingEntry(gatewayInfo *deviceInfo, upnpRule *rule_ptr);
 		boolean verifyPortMapping(gatewayInfo *deviceInfo, upnpRule *rule_ptr);
+		boolean deletePortMapping(gatewayInfo *deviceInfo, upnpRule *rule_ptr);
+		boolean applyActionOnSpecificPortMapping(SOAPAction *soapAction, gatewayInfo *deviceInfo, upnpRule *rule_ptr);
+		void removeAllPortMappingsFromIGD();
 		//char* ipAddressToCharArr(IPAddress ipAddress);  // ?? not sure this is needed
 		void upnpRuleToString(upnpRule *rule_ptr);
 		String getSpacesString(int num);
