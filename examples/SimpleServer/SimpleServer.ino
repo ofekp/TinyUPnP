@@ -85,9 +85,9 @@ void setup(void) {
   connectWiFi();
 
   boolean portMappingAdded = false;
-  tinyUPnP.setMappingConfig(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
+  tinyUPnP.addPortMappingConfig(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
   while (!portMappingAdded) {
-    portMappingAdded = tinyUPnP.addPortMapping();
+    portMappingAdded = tinyUPnP.commitPortMappings();
     Serial.println("");
   
     if (!portMappingAdded) {

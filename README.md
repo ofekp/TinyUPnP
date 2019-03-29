@@ -12,12 +12,12 @@ Usage and More Information
 
 You'll need to install few dependencies (Arduino IDE -> Sketch -> Include Library -> Manage Libraries):
 * ESP8266 - For everything...
-* EasyDDNS - For telling your DDNS server the IP of your Gateway Router (Optional).
+* EasyDDNS - For telling your DDNS server the IP of your Gateway Router (optional).
 
 **Include**
 ```
 #include "TinyUPnP.h"
-#include <EasyDDNS.h>  // Optional
+#include <EasyDDNS.h>  // optional
 ```
 
 **Declare**
@@ -26,13 +26,17 @@ TinyUPnP *tinyUPnP = new TinyUPnP(20000);  // -1 for blocking (preferably, use a
 ```
 **Setup**
 ```
-tinyUPnP->setMappingConfig(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
-portMappingAdded = tinyUPnP->addPortMapping();
+// you may repeat 'addPortMappingConfig' more than once
+tinyUPnP->addPortMappingConfig(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
+
+// finally, commit the port mappings to the IGD
+portMappingAdded = tinyUPnP->commitPortMappings();
 ```
 **Loop**
 ```
 // update UPnP port mapping every ms internal
-tinyUPnP->updatePortMapping(120000);
+// you can provide an optional method for reconnecting to the WiFi (otherwise leave as NULL)
+tinyUPnP->updatePortMapping(600000, &connectWiFi);  // 10 minutes
 ```
 **API**
 
@@ -42,16 +46,19 @@ http://<IP or DDNS>:<LISTEN_PORT>/?percentage=<0..100>
 ```
 **Print**
 ```
-// print all the current port mappings
+// print all the port mappings that were configured using 'addPortMappingConfig' in the setup step
+tinyUPnP->printPortMappingConfig();
+
+// print all the current port mappings from the IGD
 tinyUPnP->printAllPortMappings();
 ```
 **Debug**
 
-You can turn off debug prints by setting `IS_DEBUG` to `false` in [TinyUPnP.h#L16](https://github.com/ofekp/TinyUPnP/blob/master/src/TinyUPnP.h#L16)
+You can turn off debug prints by setting `UPNP_DEBUG` to `false` in [TinyUPnP.h#L16](https://github.com/ofekp/TinyUPnP/blob/master/src/TinyUPnP.h#L16)
 
 Issues
 =
-When reporting issues, attach full log (i.e `IS_DEBUG` is set to `true`) and add the serial output to the issue, preferably as a text file.
+When reporting issues, attach full log (i.e `UPNP_DEBUG` is set to `true`) and add the serial output to the issue as a text file attachment.
 
 Donation
 =
@@ -106,3 +113,5 @@ You can also see its usage in my example code [PWM_LEDServer.ino](https://github
 Special thanks
 =
 [@ajwtech](https://github.com/ajwtech) - for contributing to the package by noting the need to use `constrolURL` instead of `eventSubURL`
+
+[@Lan-Hekary](https://github.com/Lan-Hekary) - for improving the API

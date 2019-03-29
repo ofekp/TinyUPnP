@@ -6,14 +6,6 @@
 #include "Arduino.h"
 #include "TinyUPnP.h"
 
-// #ifdef UPNP_DEBUG
-// #define debugPrint(...) do { Serial.print( __VA_ARGS__ ); } while (false)
-// #define debugPrintln(...) do { Serial.println( __VA_ARGS__ ); } while (false)
-// #else
-// #define debugPrint(...) do { } while (false)
-// #define debugPrintln(...) do { } while (false)
-// #endif
-
 #ifdef UPNP_DEBUG
 #define debugPrint(...) Serial.print( __VA_ARGS__ )
 #define debugPrintln(...) Serial.println( __VA_ARGS__ )
@@ -24,12 +16,16 @@
 
 IPAddress ipMulti(239, 255, 255, 250);  // multicast address for SSDP
 IPAddress connectivityTestIp(64, 233, 187, 99);  // Google
+IPAddress ipNull(0, 0, 0, 0);  // indication to update rules when the IP of the device changes
 
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet UDP_TX_PACKET_MAX_SIZE=8192
 char responseBuffer[UDP_TX_RESPONSE_MAX_SIZE];
 
 char body_tmp[1200];
 char integer_string[32];
+
+SOAPAction SOAPActionGetSpecificPortMappingEntry = {.name = "GetSpecificPortMappingEntry"};
+SOAPAction SOAPActionDeletePortMapping = {.name = "DeletePortMapping"};
 
 // timeoutMs - timeout in milli seconds for the operations of this class, 0 for blocking operation
 TinyUPnP::TinyUPnP(unsigned long timeoutMs = 20000) {
@@ -52,7 +48,7 @@ void TinyUPnP::addPortMappingConfig(IPAddress ruleIP, int rulePort, String ruleP
 	static int index = 0;
 	upnpRule *newUpnpRule = new upnpRule();
 	newUpnpRule->index = index++;
-	newUpnpRule->internalAddr = ruleIP;
+	newUpnpRule->internalAddr = (ruleIP == WiFi.localIP()) ? ipNull : ruleIP;  // for automatic IP change handling
 	newUpnpRule->internalPort = rulePort;
 	newUpnpRule->externalPort = rulePort;
 	newUpnpRule->leaseDuration = ruleLeaseDuration;
@@ -85,6 +81,7 @@ portMappingResult TinyUPnP::commitPortMappings() {
 
 	// verify WiFi is connected
 	if (!testConnectivity(startTime)) {
+		debugPrintln(F("ERROR: not connected to WiFi, cannot continue"));
 		return NETWORK_ERROR;
 	}
 
@@ -329,7 +326,86 @@ boolean TinyUPnP::testConnectivity(unsigned long startTime) {
 }
 
 boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo, upnpRule *rule_ptr) {
-	debugPrintln(F("Verifying rule in IGD"));
+	if (!applyActionOnSpecificPortMapping(&SOAPActionGetSpecificPortMappingEntry ,deviceInfo, rule_ptr)) {
+		return false;
+	}
+    
+  // TODO: extract the current lease duration and return it instead of a boolean
+	boolean isSuccess = false;
+	boolean detectedChangedIP = false;
+	while (_wifiClient.available()) {
+		String line = _wifiClient.readStringUntil('\r');
+		debugPrint(line);
+		if (line.indexOf(F("errorCode")) >= 0) {
+			isSuccess = false;
+			// flush response and exit loop
+			while (_wifiClient.available()) {
+				line = _wifiClient.readStringUntil('\r');
+				debugPrint(line);
+			}
+			continue;
+		}
+		if (line.indexOf(F("NewInternalClient")) >= 0) {
+			String content = getTagContent(line, F("NewInternalClient"));
+			if (content.length() > 0) {
+				IPAddress ipAddressToVerify = (rule_ptr->internalAddr == ipNull) ? WiFi.localIP() : rule_ptr->internalAddr;
+				if (content == ipAddressToVerify.toString()) {
+					isSuccess = true;
+				} else {
+					detectedChangedIP = true;
+				}
+			}
+		}
+	}
+
+  debugPrintln("");  // \n
+
+	_wifiClient.stop();
+
+	if (isSuccess) {
+		debugPrintln(F("Port mapping found in IGD"));
+	} else if (detectedChangedIP) {
+		debugPrintln(F("Detected a change in IP"));
+		removeAllPortMappingsFromIGD();
+	} else {
+		debugPrintln(F("Could not find port mapping in IGD"));
+	}
+
+  return isSuccess;
+}
+
+boolean TinyUPnP::deletePortMapping(gatewayInfo *deviceInfo, upnpRule *rule_ptr) {
+	if (!applyActionOnSpecificPortMapping(&SOAPActionDeletePortMapping ,deviceInfo, rule_ptr)) {
+		return false;
+	}
+    
+	boolean isSuccess = false;
+	while (_wifiClient.available()) {
+		String line = _wifiClient.readStringUntil('\r');
+		debugPrint(line);
+		if (line.indexOf(F("errorCode")) >= 0) {
+			isSuccess = false;
+			// flush response and exit loop
+			while (_wifiClient.available()) {
+				line = _wifiClient.readStringUntil('\r');
+				debugPrint(line);
+			}
+			continue;
+		}
+		if (line.indexOf(F("DeletePortMappingResponse")) >= 0) { 
+			isSuccess = true;
+		}
+	}
+
+	return isSuccess;
+}
+
+boolean TinyUPnP::applyActionOnSpecificPortMapping(SOAPAction *soapAction, gatewayInfo *deviceInfo, upnpRule *rule_ptr) {
+	debugPrint(F("Apply action ["));
+	debugPrint(soapAction->name);
+	debugPrint(F("] on port mapping ["));
+	debugPrint(rule_ptr->devFriendlyName);
+	debugPrintln(F("]"));
 
 	// connect to IGD (TCP connection) again, if needed, in case we got disconnected after the previous query
 	unsigned long timeout = millis() + TCP_CONNECTION_TIMEOUT_MS;
@@ -344,12 +420,16 @@ boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo, upnpRule *rule_ptr)
 		}
 	}
 
-	strcpy_P(body_tmp, PSTR("<?xml version=\"1.0\"?>\r\n<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\r\n<s:Body>\r\n<u:GetSpecificPortMappingEntry xmlns:u=\"urn:schemas-upnp-org:service:WANPPPConnection:1\">\r\n<NewRemoteHost></NewRemoteHost>\r\n<NewExternalPort>"));
+	strcpy_P(body_tmp, PSTR("<?xml version=\"1.0\"?>\r\n<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\r\n<s:Body>\r\n<u:"));
+	strcat_P(body_tmp, soapAction->name);
+	strcat_P(body_tmp, PSTR(" xmlns:u=\"urn:schemas-upnp-org:service:WANPPPConnection:1\">\r\n<NewRemoteHost></NewRemoteHost>\r\n<NewExternalPort>"));
 	sprintf(integer_string, "%d", rule_ptr->internalPort);
 	strcat_P(body_tmp, integer_string);
 	strcat_P(body_tmp, PSTR("</NewExternalPort>\r\n<NewProtocol>"));
 	strcat_P(body_tmp, rule_ptr->protocol.c_str());
-	strcat_P(body_tmp, PSTR("</NewProtocol>\r\n</u:GetSpecificPortMappingEntry>\r\n</s:Body>\r\n</s:Envelope>\r\n"));
+	strcat_P(body_tmp, PSTR("</NewProtocol>\r\n</u:"));
+	strcat_P(body_tmp, soapAction->name);
+	strcat_P(body_tmp, PSTR(">\r\n</s:Body>\r\n</s:Envelope>\r\n"));
 
 	sprintf(integer_string, "%d", strlen(body_tmp));
 
@@ -360,7 +440,9 @@ boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo, upnpRule *rule_ptr)
 	_wifiClient.println(F("Connection: close"));
 	_wifiClient.println(F("Content-Type: text/xml; charset=\"utf-8\""));
 	_wifiClient.println("Host: " + deviceInfo->host.toString() + ":" + String(deviceInfo->actionPort));
-	_wifiClient.println(F("SOAPAction: \"urn:schemas-upnp-org:service:WANPPPConnection:1#GetSpecificPortMappingEntry\""));
+	_wifiClient.print(F("SOAPAction: \"urn:schemas-upnp-org:service:WANPPPConnection:1#"));
+	_wifiClient.print(soapAction->name);
+	_wifiClient.println(F("\""));
 	_wifiClient.print(F("Content-Length: "));
 	_wifiClient.println(integer_string);
 	_wifiClient.println();
@@ -381,31 +463,14 @@ boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo, upnpRule *rule_ptr)
 			return false;
 		}
   }
-    
-  // TODO: extract the current lease duration and return it instead of a boolean
-	boolean isSuccess = false;
-	while (_wifiClient.available()) {
-		String line = _wifiClient.readStringUntil('\r');
-		if (line.indexOf(F("errorCode")) >= 0) {
-			isSuccess = false;
-		}
-		if (line.indexOf(rule_ptr->internalAddr.toString()) >= 0) {
-			isSuccess = true;
-    }
-		debugPrint(line);
-  }
+}
 
-  debugPrintln("");  // \n
-
-	_wifiClient.stop();
-
-	if (isSuccess) {
-		debugPrintln(F("Port mapping found in IGD"));
-	} else {
-		debugPrintln(F("Could not find port mapping in IGD"));
+void TinyUPnP::removeAllPortMappingsFromIGD() {
+	upnpRuleNode *currNode = _headRuleNode;
+	while (currNode != NULL) {
+		deletePortMapping(&_gwInfo, currNode->upnpRule);
+		currNode = currNode->next;
 	}
-
-  return isSuccess;
 }
 
 // a single try to connect UDP multicast address and port of UPnP (239.255.255.250 and 1900 respectively)
@@ -495,13 +560,7 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
 	}
 	responseBuffer[idx] = '\0';
 
-	debugPrintln(F("Gateway packet content (many variations for debug):"));
-	debugPrintln(F("char at 0"));
-	Serial.println(packetBuffer[0]);
-	debugPrintln(F("char at 1"));
-	Serial.println(packetBuffer[1]);
-	debugPrintln(F("packetBuffer:"));
-	Serial.println((char*) packetBuffer);
+	debugPrintln(F("Gateway packet content:"));
 	Serial.println(responseBuffer);
 
 	// only continue if the packet is a response to M-SEARCH and it originated from a gateway device
@@ -713,7 +772,8 @@ boolean TinyUPnP::addPortMappingEntry(gatewayInfo *deviceInfo, upnpRule *rule_pt
 	sprintf(integer_string, "%d", rule_ptr->internalPort);
 	strcat_P(body_tmp, integer_string);
 	strcat_P(body_tmp, PSTR("</NewInternalPort><NewInternalClient>"));
-	strcat_P(body_tmp, rule_ptr->internalAddr.toString().c_str());
+	IPAddress ipAddress = (rule_ptr->internalAddr == ipNull) ? WiFi.localIP() : rule_ptr->internalAddr;
+	strcat_P(body_tmp, ipAddress.toString().c_str());
 	strcat_P(body_tmp, PSTR("</NewInternalClient><NewEnabled>1</NewEnabled><NewPortMappingDescription>"));
 	strcat_P(body_tmp, rule_ptr->devFriendlyName.c_str());
 	strcat_P(body_tmp, PSTR("</NewPortMappingDescription><NewLeaseDuration>"));
@@ -931,7 +991,8 @@ void TinyUPnP::upnpRuleToString(upnpRule *rule_ptr) {
 	Serial.print(devFriendlyName);
 	Serial.print(getSpacesString(30	- devFriendlyName.length()));
 
-	String internalAddr = rule_ptr->internalAddr.toString();
+	IPAddress ipAddress = (rule_ptr->internalAddr == ipNull) ? WiFi.localIP() : rule_ptr->internalAddr;
+	String internalAddr = ipAddress.toString();
 	Serial.print(internalAddr);
   Serial.print(getSpacesString(18 - internalAddr.length()));
 
