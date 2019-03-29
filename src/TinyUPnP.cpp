@@ -347,8 +347,6 @@ boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo, upnpRule *rule_ptr)
 		}
 		if (line.indexOf(F("NewInternalClient")) >= 0) {
 			String content = getTagContent(line, F("NewInternalClient"));
-			debugPrint("---> ");
-			debugPrintln(content);
 			if (content.length() > 0) {
 				IPAddress ipAddressToVerify = (rule_ptr->internalAddr == ipNull) ? WiFi.localIP() : rule_ptr->internalAddr;
 				if (content == ipAddressToVerify.toString()) {
@@ -442,7 +440,7 @@ boolean TinyUPnP::applyActionOnSpecificPortMapping(SOAPAction *soapAction, gatew
 	_wifiClient.println(F("Connection: close"));
 	_wifiClient.println(F("Content-Type: text/xml; charset=\"utf-8\""));
 	_wifiClient.println("Host: " + deviceInfo->host.toString() + ":" + String(deviceInfo->actionPort));
-	_wifiClient.println(F("SOAPAction: \"urn:schemas-upnp-org:service:WANPPPConnection:1#"));
+	_wifiClient.print(F("SOAPAction: \"urn:schemas-upnp-org:service:WANPPPConnection:1#"));
 	_wifiClient.print(soapAction->name);
 	_wifiClient.println(F("\""));
 	_wifiClient.print(F("Content-Length: "));
