@@ -560,13 +560,7 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
 	}
 	responseBuffer[idx] = '\0';
 
-	debugPrintln(F("Gateway packet content (many variations for debug):"));
-	debugPrintln(F("char at 0"));
-	Serial.println(packetBuffer[0]);
-	debugPrintln(F("char at 1"));
-	Serial.println(packetBuffer[1]);
-	debugPrintln(F("packetBuffer:"));
-	Serial.println((char*) packetBuffer);
+	debugPrintln(F("Gateway packet content:"));
 	Serial.println(responseBuffer);
 
 	// only continue if the packet is a response to M-SEARCH and it originated from a gateway device
