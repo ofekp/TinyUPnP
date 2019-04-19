@@ -180,7 +180,7 @@ void loop(void) {
 
   EasyDDNS.update(300000);  // check for New IP
 
-  tinyUPnP.updatePortMapping(600000, &connectWiFi);  // 10 minutes
+  tinyUPnP.updatePortMappings(600000, &connectWiFi);  // 10 minutes
 
   server.handleClient();
 }

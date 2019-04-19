@@ -36,7 +36,7 @@ portMappingAdded = tinyUPnP->commitPortMappings();
 ```
 // update UPnP port mapping every ms internal
 // you can provide an optional method for reconnecting to the WiFi (otherwise leave as NULL)
-tinyUPnP->updatePortMapping(600000, &connectWiFi);  // 10 minutes
+tinyUPnP->updatePortMappings(600000, &connectWiFi);  // 10 minutes
 ```
 **API**
 
