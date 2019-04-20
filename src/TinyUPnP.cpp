@@ -256,7 +256,7 @@ portMappingResult TinyUPnP::updatePortMappings(unsigned long intervalMs, callbac
 
 		// fallback
 		if (_consequtiveFails >= MAX_NUM_OF_UPDATES_WITH_NO_EFFECT) {
-			debugPrint(F("ERROR: Too many times with no effect on updatePortMapping. Current number of fallbacks times ["));
+			debugPrint(F("ERROR: Too many times with no effect on updatePortMappings. Current number of fallbacks times ["));
 			debugPrint(String(_consequtiveFails));
 			debugPrintln(F("]"));
 

@@ -127,7 +127,7 @@ void setup(void) {
 void loop(void) {
   delay(5);
 
-  tinyUPnP.updatePortMapping(600000, &connectWiFi);  // 10 minutes
+  tinyUPnP.updatePortMappings(600000, &connectWiFi);  // 10 minutes
 
   server.handleClient();
 }

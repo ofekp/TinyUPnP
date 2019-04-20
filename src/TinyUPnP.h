@@ -23,7 +23,7 @@
 #define RULE_PROTOCOL_TCP "TCP"
 #define RULE_PROTOCOL_UDP "UDP"
 
-#define MAX_NUM_OF_UPDATES_WITH_NO_EFFECT 6  // after 10 tries of updatePortMapping we will execute the more extensive addPortMapping
+#define MAX_NUM_OF_UPDATES_WITH_NO_EFFECT 6  // after 10 tries of updatePortMappings we will execute the more extensive addPortMapping
 
 #define UDP_TX_PACKET_MAX_SIZE 1000  // reduce max UDP packet size to conserve memory (by default UDP_TX_PACKET_MAX_SIZE=8192)
 #define UDP_TX_RESPONSE_MAX_SIZE 8192
