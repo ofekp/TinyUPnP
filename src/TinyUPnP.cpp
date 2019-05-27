@@ -503,7 +503,7 @@ void TinyUPnP::broadcastMSearch() {
 	strcat_P(body_tmp, PSTR("HOST: 239.255.255.250:1900\r\n"));
 	strcat_P(body_tmp, PSTR("MAN: \"ssdp:discover\"\r\n"));
 	strcat_P(body_tmp, PSTR("MX: 5\r\n"));
-	strcat_P(body_tmp, PSTR("ST: ssdp:all\r\n\r\n"));
+	strcat_P(body_tmp, PSTR("ST: urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n\r\n"));
 
 	_udpClient.write(body_tmp);
 	_udpClient.endPacket();
