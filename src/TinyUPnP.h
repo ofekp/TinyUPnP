@@ -28,8 +28,9 @@
 #define UDP_TX_PACKET_MAX_SIZE 1000  // reduce max UDP packet size to conserve memory (by default UDP_TX_PACKET_MAX_SIZE=8192)
 #define UDP_TX_RESPONSE_MAX_SIZE 8192
 
-const String UPNP_SERVICE_TYPE_1 = "urn:schemas-upnp-org:service:WANPPPConnection:1";
-const String UPNP_SERVICE_TYPE_2 = "urn:schemas-upnp-org:service:WANIPConnection:1";
+const String UPNP_SERVICE_TYPE_1 = "urn:schemas-upnp-org:service:WANPPPConnection:";
+const String UPNP_SERVICE_TYPE_2 = "urn:schemas-upnp-org:service:WANIPConnection:";
+const String UPNP_SERVICE_TYPE_TAG_NAME = "serviceType";
 const String UPNP_SERVICE_TYPE_TAG_START = "<serviceType>";
 const String UPNP_SERVICE_TYPE_TAG_END = "</serviceType>";
 

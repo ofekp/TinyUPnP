@@ -422,7 +422,9 @@ boolean TinyUPnP::applyActionOnSpecificPortMapping(SOAPAction *soapAction, gatew
 
 	strcpy_P(body_tmp, PSTR("<?xml version=\"1.0\"?>\r\n<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\r\n<s:Body>\r\n<u:"));
 	strcat_P(body_tmp, soapAction->name);
-	strcat_P(body_tmp, PSTR(" xmlns:u=\"urn:schemas-upnp-org:service:WANPPPConnection:1\">\r\n<NewRemoteHost></NewRemoteHost>\r\n<NewExternalPort>"));
+	strcat_P(body_tmp, PSTR(" xmlns:u=\""));
+  strcat_P(body_tmp, deviceInfo->serviceTypeName.c_str());
+  strcat_P(body_tmp, PSTR("\">\r\n<NewRemoteHost></NewRemoteHost>\r\n<NewExternalPort>"));
 	sprintf(integer_string, "%d", rule_ptr->internalPort);
 	strcat_P(body_tmp, integer_string);
 	strcat_P(body_tmp, PSTR("</NewExternalPort>\r\n<NewProtocol>"));
@@ -440,7 +442,9 @@ boolean TinyUPnP::applyActionOnSpecificPortMapping(SOAPAction *soapAction, gatew
 	_wifiClient.println(F("Connection: close"));
 	_wifiClient.println(F("Content-Type: text/xml; charset=\"utf-8\""));
 	_wifiClient.println("Host: " + deviceInfo->host.toString() + ":" + String(deviceInfo->actionPort));
-	_wifiClient.print(F("SOAPAction: \"urn:schemas-upnp-org:service:WANPPPConnection:1#"));
+	_wifiClient.print(F("SOAPAction: \""));
+	_wifiClient.print(deviceInfo->serviceTypeName);
+	_wifiClient.print(F("#"));
 	_wifiClient.print(soapAction->name);
 	_wifiClient.println(F("\""));
 	_wifiClient.print(F("Content-Length: "));
@@ -694,19 +698,25 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			}
 		}
 		
-		int service_type_1_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_1 + UPNP_SERVICE_TYPE_TAG_END);
-		int service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_2 + UPNP_SERVICE_TYPE_TAG_END);
+		int service_type_1_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_1);
+		if (service_type_1_index >= 0) {
+			service_type_1_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_END);
+		}
+		int service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_2);
+		if (service_type_2_index >= 0) {
+			service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_END);
+		}
 		if (!upnpServiceFound && service_type_1_index >= 0) {
 			index_in_line += service_type_1_index;
-			debugPrintln(UPNP_SERVICE_TYPE_1 + " service found!");
 			upnpServiceFound = true;
-			deviceInfo->serviceTypeName = UPNP_SERVICE_TYPE_1;
+			deviceInfo->serviceTypeName = getTagContent(line, UPNP_SERVICE_TYPE_TAG_NAME);
+			debugPrintln(deviceInfo->serviceTypeName + " service found!");
 			// will start looking for 'controlURL' now
 		} else if (!upnpServiceFound && service_type_2_index >= 0) {
 			index_in_line += service_type_2_index;
-			debugPrintln(UPNP_SERVICE_TYPE_2 + " service found!");
 			upnpServiceFound = true;
-			deviceInfo->serviceTypeName = UPNP_SERVICE_TYPE_2;
+			deviceInfo->serviceTypeName = getTagContent(line, UPNP_SERVICE_TYPE_TAG_NAME);
+			debugPrintln(deviceInfo->serviceTypeName + " service found!");
 			// will start looking for 'controlURL' now
 		}
 		
