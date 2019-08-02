@@ -3,7 +3,8 @@
   Created by Ofek Pearl, September 2017.
 */
 
-#include "Arduino.h"
+#include <Arduino.h>
+#include <WiFi.h>
 #include "TinyUPnP.h"
 
 #ifdef UPNP_DEBUG
@@ -467,6 +468,7 @@ boolean TinyUPnP::applyActionOnSpecificPortMapping(SOAPAction *soapAction, gatew
 			return false;
 		}
   }
+  return true;
 }
 
 void TinyUPnP::removeAllPortMappingsFromIGD() {
@@ -480,7 +482,7 @@ void TinyUPnP::removeAllPortMappingsFromIGD() {
 // a single try to connect UDP multicast address and port of UPnP (239.255.255.250 and 1900 respectively)
 // this will enable receiving SSDP packets after the M-SEARCH multicast message will be broadcasted
 boolean TinyUPnP::connectUDP() {
-	if (_udpClient.beginMulticast(WiFi.localIP(), ipMulti, UPNP_SSDP_PORT)) {
+	if (_udpClient.beginMulticast(ipMulti, UPNP_SSDP_PORT)) {
 		return true;
 	}
 	debugPrintln(F("UDP connection failed"));
@@ -497,7 +499,7 @@ void TinyUPnP::broadcastMSearch() {
 	debugPrint(String(UPNP_SSDP_PORT));
 	debugPrintln(F("]"));
 
-	_udpClient.beginPacketMulticast(ipMulti, UPNP_SSDP_PORT, WiFi.localIP());
+	_udpClient.beginMulticastPacket();
 
 	strcpy_P(body_tmp, PSTR("M-SEARCH * HTTP/1.1\r\n"));
 	strcat_P(body_tmp, PSTR("HOST: 239.255.255.250:1900\r\n"));
@@ -505,7 +507,7 @@ void TinyUPnP::broadcastMSearch() {
 	strcat_P(body_tmp, PSTR("MX: 5\r\n"));
 	strcat_P(body_tmp, PSTR("ST: urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n\r\n"));
 
-	_udpClient.write(body_tmp);
+	_udpClient.print(body_tmp);
 	_udpClient.endPacket();
 
 	debugPrintln(F("M-SEARCH sent"));
@@ -670,7 +672,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	
 	// read all the lines of the reply from server
 	boolean upnpServiceFound = false;
-	boolean controlURLFound = false;
+	//boolean controlURLFound = false;
 	boolean urlBaseFound = false;
 	while (_wifiClient.available()) {
 		String line = _wifiClient.readStringUntil('\r');
@@ -729,7 +731,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			String controlURLContent = getTagContent(line.substring(index_in_line), "controlURL");
 			if (controlURLContent.length() > 0) {
 				deviceInfo->actionPath = controlURLContent;
-				controlURLFound = true;
+				//controlURLFound = true;
 
 				debugPrint(F("controlURL tag found! setting actionPath to ["));
 				debugPrint(controlURLContent);
