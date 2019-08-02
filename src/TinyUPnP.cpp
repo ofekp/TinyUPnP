@@ -697,25 +697,30 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 				urlBaseFound = true;
 			}
 		}
+
+		// to support multiple <serviceType> tags
+		int service_type_index_start = 0;
 		
 		int service_type_1_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_1);
 		if (service_type_1_index >= 0) {
-			service_type_1_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_END);
+			service_type_index_start = service_type_1_index;
+			service_type_1_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_END, service_type_index_start);
 		}
 		int service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_2);
 		if (service_type_2_index >= 0) {
-			service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_END);
+			service_type_index_start = service_type_2_index;
+			service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_END, service_type_index_start);
 		}
 		if (!upnpServiceFound && service_type_1_index >= 0) {
 			index_in_line += service_type_1_index;
 			upnpServiceFound = true;
-			deviceInfo->serviceTypeName = getTagContent(line, UPNP_SERVICE_TYPE_TAG_NAME);
+			deviceInfo->serviceTypeName = getTagContent(line.substring(service_type_index_start), UPNP_SERVICE_TYPE_TAG_NAME);
 			debugPrintln(deviceInfo->serviceTypeName + " service found!");
 			// will start looking for 'controlURL' now
 		} else if (!upnpServiceFound && service_type_2_index >= 0) {
 			index_in_line += service_type_2_index;
 			upnpServiceFound = true;
-			deviceInfo->serviceTypeName = getTagContent(line, UPNP_SERVICE_TYPE_TAG_NAME);
+			deviceInfo->serviceTypeName = getTagContent(line.substring(service_type_index_start), UPNP_SERVICE_TYPE_TAG_NAME);
 			debugPrintln(deviceInfo->serviceTypeName + " service found!");
 			// will start looking for 'controlURL' now
 		}
