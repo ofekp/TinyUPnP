@@ -4,7 +4,13 @@
 */
 
 #include <Arduino.h>
-#include <WiFi.h>
+
+#if defined(ESP8266)
+  #include <ESP8266WiFi.h>
+#else
+  #include <WiFi.h>
+#endif
+
 #include "TinyUPnP.h"
 
 #ifdef UPNP_DEBUG
@@ -482,9 +488,16 @@ void TinyUPnP::removeAllPortMappingsFromIGD() {
 // a single try to connect UDP multicast address and port of UPnP (239.255.255.250 and 1900 respectively)
 // this will enable receiving SSDP packets after the M-SEARCH multicast message will be broadcasted
 boolean TinyUPnP::connectUDP() {
+#if defined(ESP8266)
+	if (_udpClient.beginMulticast(WiFi.localIP(), ipMulti, UPNP_SSDP_PORT)) {
+		return true;
+	}
+#else
 	if (_udpClient.beginMulticast(ipMulti, UPNP_SSDP_PORT)) {
 		return true;
 	}
+#endif
+
 	debugPrintln(F("UDP connection failed"));
 	return false;
 }
@@ -499,7 +512,11 @@ void TinyUPnP::broadcastMSearch() {
 	debugPrint(String(UPNP_SSDP_PORT));
 	debugPrintln(F("]"));
 
+#if defined(ESP8266)
+	_udpClient.beginPacketMulticast(ipMulti, UPNP_SSDP_PORT, WiFi.localIP());
+#else
 	_udpClient.beginMulticastPacket();
+#endif
 
 	strcpy_P(body_tmp, PSTR("M-SEARCH * HTTP/1.1\r\n"));
 	strcat_P(body_tmp, PSTR("HOST: 239.255.255.250:1900\r\n"));
@@ -507,7 +524,12 @@ void TinyUPnP::broadcastMSearch() {
 	strcat_P(body_tmp, PSTR("MX: 5\r\n"));
 	strcat_P(body_tmp, PSTR("ST: urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n\r\n"));
 
+#if defined(ESP8266)
+	_udpClient.write(body_tmp);
+#else
 	_udpClient.print(body_tmp);
+#endif
+	
 	_udpClient.endPacket();
 
 	debugPrintln(F("M-SEARCH sent"));
