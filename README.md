@@ -115,3 +115,5 @@ Special thanks
 [@ajwtech](https://github.com/ajwtech) - for contributing to the package by noting the need to use `constrolURL` instead of `eventSubURL`
 
 [@Lan-Hekary](https://github.com/Lan-Hekary) - for improving the API
+
+[@GIPdA](https://github.com/GIPdA) - for adding ESP32 support

@@ -430,8 +430,8 @@ boolean TinyUPnP::applyActionOnSpecificPortMapping(SOAPAction *soapAction, gatew
 	strcpy_P(body_tmp, PSTR("<?xml version=\"1.0\"?>\r\n<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\r\n<s:Body>\r\n<u:"));
 	strcat_P(body_tmp, soapAction->name);
 	strcat_P(body_tmp, PSTR(" xmlns:u=\""));
-  strcat_P(body_tmp, deviceInfo->serviceTypeName.c_str());
-  strcat_P(body_tmp, PSTR("\">\r\n<NewRemoteHost></NewRemoteHost>\r\n<NewExternalPort>"));
+	strcat_P(body_tmp, deviceInfo->serviceTypeName.c_str());
+	strcat_P(body_tmp, PSTR("\">\r\n<NewRemoteHost></NewRemoteHost>\r\n<NewExternalPort>"));
 	sprintf(integer_string, "%d", rule_ptr->internalPort);
 	strcat_P(body_tmp, integer_string);
 	strcat_P(body_tmp, PSTR("</NewExternalPort>\r\n<NewProtocol>"));
@@ -473,8 +473,8 @@ boolean TinyUPnP::applyActionOnSpecificPortMapping(SOAPAction *soapAction, gatew
 			// did not see them in the router list
 			return false;
 		}
-  }
-  return true;
+	}
+  	return true;
 }
 
 void TinyUPnP::removeAllPortMappingsFromIGD() {
@@ -589,7 +589,7 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
 	responseBuffer[idx] = '\0';
 
 	debugPrintln(F("Gateway packet content:"));
-	Serial.println(responseBuffer);
+	debugPrintln(responseBuffer);
 
 	// only continue if the packet is a response to M-SEARCH and it originated from a gateway device
 	if (strstr(responseBuffer, INTERNET_GATEWAY_DEVICE) == NULL) {
@@ -694,7 +694,6 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	
 	// read all the lines of the reply from server
 	boolean upnpServiceFound = false;
-	//boolean controlURLFound = false;
 	boolean urlBaseFound = false;
 	while (_wifiClient.available()) {
 		String line = _wifiClient.readStringUntil('\r');
@@ -753,7 +752,6 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			String controlURLContent = getTagContent(line.substring(index_in_line), "controlURL");
 			if (controlURLContent.length() > 0) {
 				deviceInfo->actionPath = controlURLContent;
-				//controlURLFound = true;
 
 				debugPrint(F("controlURL tag found! setting actionPath to ["));
 				debugPrint(controlURLContent);
@@ -765,7 +763,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 					_wifiClient.read();
 				}
 				
-				// now we have (upnpServiceFound && controlURLFound == true)
+				// now we have (upnpServiceFound && controlURLFound)
 				return true;
 			}
 		}
@@ -1022,36 +1020,36 @@ void TinyUPnP::printPortMappingConfig() {
 // TODO: remove use of String
 void TinyUPnP::upnpRuleToString(upnpRule *rule_ptr) {
 	String index = String(rule_ptr->index);
-	Serial.print(index);
-	Serial.print(".");
-	Serial.print(getSpacesString(5 - (index.length() + 1)));  // considering the '.' too
+	debugPrint(index);
+	debugPrint(".");
+	debugPrint(getSpacesString(5 - (index.length() + 1)));  // considering the '.' too
 
 	String devFriendlyName = rule_ptr->devFriendlyName;
-	Serial.print(devFriendlyName);
-	Serial.print(getSpacesString(30	- devFriendlyName.length()));
+	debugPrint(devFriendlyName);
+	debugPrint(getSpacesString(30	- devFriendlyName.length()));
 
 	IPAddress ipAddress = (rule_ptr->internalAddr == ipNull) ? WiFi.localIP() : rule_ptr->internalAddr;
 	String internalAddr = ipAddress.toString();
-	Serial.print(internalAddr);
-  Serial.print(getSpacesString(18 - internalAddr.length()));
+	debugPrint(internalAddr);
+	debugPrint(getSpacesString(18 - internalAddr.length()));
 
 	String internalPort = String(rule_ptr->internalPort);
-	Serial.print(internalPort);
-	Serial.print(getSpacesString(7 - internalPort.length()));
+	debugPrint(internalPort);
+	debugPrint(getSpacesString(7 - internalPort.length()));
 
 	String externalPort = String(rule_ptr->externalPort);
-	Serial.print(externalPort);
-	Serial.print(getSpacesString(7 - externalPort.length()));
+	debugPrint(externalPort);
+	debugPrint(getSpacesString(7 - externalPort.length()));
 	
 	String protocol = rule_ptr->protocol;
-	Serial.print(protocol);
-	Serial.print(getSpacesString(7 - protocol.length()));
+	debugPrint(protocol);
+	debugPrint(getSpacesString(7 - protocol.length()));
 
 	String leaseDuration = String(rule_ptr->leaseDuration);
-	Serial.print(leaseDuration);
-	Serial.print(getSpacesString(7 - leaseDuration.length()));
+	debugPrint(leaseDuration);
+	debugPrint(getSpacesString(7 - leaseDuration.length()));
 
-	Serial.println();
+	debugPrintln("");
 }
 
 String TinyUPnP::getSpacesString(int num) {
@@ -1132,7 +1130,7 @@ String TinyUPnP::getPath(String url) {
 }
 
 String TinyUPnP::getTagContent(const String &line, String tagName) {
-	int startIndex = line.indexOf("<" + tagName + ">");
+  int startIndex = line.indexOf("<" + tagName + ">");
   if (startIndex == -1) {
 		debugPrint(F("ERROR: Cannot find tag content in line ["));
 		debugPrint(line);

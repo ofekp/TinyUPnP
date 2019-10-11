@@ -1,19 +1,27 @@
+/*  
+  Note: This example includes the library EasyDDNS. You'll have to add this package using your Arduino Library Manager.
+        The purpose of this package is to publish your dynamic IP to a DDNS service that will allocate a human readable
+        address to your current IP. If you do not need that, you can remove this dependency.
+*/
+
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <TinyUPnP.h>
+#include <EasyDDNS.h>  // see note above
 
-const char* ssid = "<FILL THIS!>";
+const char* ssid = "<FILL>";
 const char* password = "<FILL THIS!>";
-
-WebServer server(1900);
-
-#define LISTEN_PORT 1900  // http://<IP>:<LISTEN_PORT>/?name=<your string>
+#define LISTEN_PORT <FILL THIS!>  // http://<IP>:<LISTEN_PORT>/?name=<your string>
 #define LEASE_DURATION 36000  // seconds
 #define FRIENDLY_NAME "<FILL THIS!>"  // this name will appear in your router port forwarding section
+#define DDNS_USERNAME "<FILL THIS!>"
+#define DDNS_PASSWORD "<FILL THIS!>"
+#define DDNS_DOMAIN "<FILL THIS!>"
 
 TinyUPnP tinyUPnP(20000);  // -1 means blocking, preferably, use a timeout value (ms)
+WebServer server(LISTEN_PORT);
 
 const int led = 13;
 
@@ -93,6 +101,8 @@ void setup(void) {
 }
 
 void loop(void) {
+	
+  EasyDDNS.update(300000);
     
   tinyUPnP.updatePortMappings(600000);  // 10 minutes
   
