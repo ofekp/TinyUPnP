@@ -1,18 +1,21 @@
 # TinyUPnP
-A very small UPnP IGD implementation for ESP8266.
+A very small UPnP IGD implementation for ESP8266 or ESP32.
 
 Installation
 =
-Just clone or download as zip, then simply copy the folder TinyUPnP to the Arduino IDE "libraries" folder e.g "D:\arduino-1.6.8\libraries".
+Just clone or download as zip, then simply copy the folder TinyUPnP to the Arduino IDE "libraries" folder e.g "D:\arduino-1.8.9\libraries".
 
 Usage and More Information
 =
 
 **Dependecies**
 
-You'll need to install few dependencies (Arduino IDE -> Sketch -> Include Library -> Manage Libraries):
-* ESP8266 - For everything...
-* EasyDDNS - For telling your DDNS server the IP of your Gateway Router (optional).
+Boards:
+* ESP8266 - Follow https://randomnerdtutorials.com/how-to-install-esp8266-board-arduino-ide/
+* ESP32 - Follow https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/
+
+Libraries (Arduino IDE -> Sketch -> Include Library -> Manage Libraries):
+* EasyDDNS - For telling your DDNS server what the IP of your Gateway Router is (optional).
 
 **Include**
 ```
