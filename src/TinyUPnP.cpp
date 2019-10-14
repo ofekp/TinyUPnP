@@ -3,7 +3,14 @@
   Created by Ofek Pearl, September 2017.
 */
 
-#include "Arduino.h"
+#include <Arduino.h>
+
+#if defined(ESP8266)
+  #include <ESP8266WiFi.h>
+#else
+  #include <WiFi.h>
+#endif
+
 #include "TinyUPnP.h"
 
 #ifdef UPNP_DEBUG
@@ -423,8 +430,8 @@ boolean TinyUPnP::applyActionOnSpecificPortMapping(SOAPAction *soapAction, gatew
 	strcpy_P(body_tmp, PSTR("<?xml version=\"1.0\"?>\r\n<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\r\n<s:Body>\r\n<u:"));
 	strcat_P(body_tmp, soapAction->name);
 	strcat_P(body_tmp, PSTR(" xmlns:u=\""));
-  strcat_P(body_tmp, deviceInfo->serviceTypeName.c_str());
-  strcat_P(body_tmp, PSTR("\">\r\n<NewRemoteHost></NewRemoteHost>\r\n<NewExternalPort>"));
+	strcat_P(body_tmp, deviceInfo->serviceTypeName.c_str());
+	strcat_P(body_tmp, PSTR("\">\r\n<NewRemoteHost></NewRemoteHost>\r\n<NewExternalPort>"));
 	sprintf(integer_string, "%d", rule_ptr->internalPort);
 	strcat_P(body_tmp, integer_string);
 	strcat_P(body_tmp, PSTR("</NewExternalPort>\r\n<NewProtocol>"));
@@ -466,7 +473,8 @@ boolean TinyUPnP::applyActionOnSpecificPortMapping(SOAPAction *soapAction, gatew
 			// did not see them in the router list
 			return false;
 		}
-  }
+	}
+  	return true;
 }
 
 void TinyUPnP::removeAllPortMappingsFromIGD() {
@@ -480,9 +488,16 @@ void TinyUPnP::removeAllPortMappingsFromIGD() {
 // a single try to connect UDP multicast address and port of UPnP (239.255.255.250 and 1900 respectively)
 // this will enable receiving SSDP packets after the M-SEARCH multicast message will be broadcasted
 boolean TinyUPnP::connectUDP() {
+#if defined(ESP8266)
 	if (_udpClient.beginMulticast(WiFi.localIP(), ipMulti, UPNP_SSDP_PORT)) {
 		return true;
 	}
+#else
+	if (_udpClient.beginMulticast(ipMulti, UPNP_SSDP_PORT)) {
+		return true;
+	}
+#endif
+
 	debugPrintln(F("UDP connection failed"));
 	return false;
 }
@@ -497,7 +512,11 @@ void TinyUPnP::broadcastMSearch() {
 	debugPrint(String(UPNP_SSDP_PORT));
 	debugPrintln(F("]"));
 
+#if defined(ESP8266)
 	_udpClient.beginPacketMulticast(ipMulti, UPNP_SSDP_PORT, WiFi.localIP());
+#else
+	_udpClient.beginMulticastPacket();
+#endif
 
 	strcpy_P(body_tmp, PSTR("M-SEARCH * HTTP/1.1\r\n"));
 	strcat_P(body_tmp, PSTR("HOST: 239.255.255.250:1900\r\n"));
@@ -505,7 +524,12 @@ void TinyUPnP::broadcastMSearch() {
 	strcat_P(body_tmp, PSTR("MX: 5\r\n"));
 	strcat_P(body_tmp, PSTR("ST: urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n\r\n"));
 
+#if defined(ESP8266)
 	_udpClient.write(body_tmp);
+#else
+	_udpClient.print(body_tmp);
+#endif
+	
 	_udpClient.endPacket();
 
 	debugPrintln(F("M-SEARCH sent"));
@@ -565,7 +589,7 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
 	responseBuffer[idx] = '\0';
 
 	debugPrintln(F("Gateway packet content:"));
-	Serial.println(responseBuffer);
+	debugPrintln(responseBuffer);
 
 	// only continue if the packet is a response to M-SEARCH and it originated from a gateway device
 	if (strstr(responseBuffer, INTERNET_GATEWAY_DEVICE) == NULL) {
@@ -670,7 +694,6 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 	
 	// read all the lines of the reply from server
 	boolean upnpServiceFound = false;
-	boolean controlURLFound = false;
 	boolean urlBaseFound = false;
 	while (_wifiClient.available()) {
 		String line = _wifiClient.readStringUntil('\r');
@@ -697,25 +720,30 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 				urlBaseFound = true;
 			}
 		}
+
+		// to support multiple <serviceType> tags
+		int service_type_index_start = 0;
 		
 		int service_type_1_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_1);
 		if (service_type_1_index >= 0) {
-			service_type_1_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_END);
+			service_type_index_start = service_type_1_index;
+			service_type_1_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_END, service_type_index_start);
 		}
 		int service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_2);
 		if (service_type_2_index >= 0) {
-			service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_END);
+			service_type_index_start = service_type_2_index;
+			service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_END, service_type_index_start);
 		}
 		if (!upnpServiceFound && service_type_1_index >= 0) {
 			index_in_line += service_type_1_index;
 			upnpServiceFound = true;
-			deviceInfo->serviceTypeName = getTagContent(line, UPNP_SERVICE_TYPE_TAG_NAME);
+			deviceInfo->serviceTypeName = getTagContent(line.substring(service_type_index_start), UPNP_SERVICE_TYPE_TAG_NAME);
 			debugPrintln(deviceInfo->serviceTypeName + " service found!");
 			// will start looking for 'controlURL' now
 		} else if (!upnpServiceFound && service_type_2_index >= 0) {
 			index_in_line += service_type_2_index;
 			upnpServiceFound = true;
-			deviceInfo->serviceTypeName = getTagContent(line, UPNP_SERVICE_TYPE_TAG_NAME);
+			deviceInfo->serviceTypeName = getTagContent(line.substring(service_type_index_start), UPNP_SERVICE_TYPE_TAG_NAME);
 			debugPrintln(deviceInfo->serviceTypeName + " service found!");
 			// will start looking for 'controlURL' now
 		}
@@ -724,7 +752,6 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 			String controlURLContent = getTagContent(line.substring(index_in_line), "controlURL");
 			if (controlURLContent.length() > 0) {
 				deviceInfo->actionPath = controlURLContent;
-				controlURLFound = true;
 
 				debugPrint(F("controlURL tag found! setting actionPath to ["));
 				debugPrint(controlURLContent);
@@ -736,7 +763,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
 					_wifiClient.read();
 				}
 				
-				// now we have (upnpServiceFound && controlURLFound == true)
+				// now we have (upnpServiceFound && controlURLFound)
 				return true;
 			}
 		}
@@ -993,36 +1020,36 @@ void TinyUPnP::printPortMappingConfig() {
 // TODO: remove use of String
 void TinyUPnP::upnpRuleToString(upnpRule *rule_ptr) {
 	String index = String(rule_ptr->index);
-	Serial.print(index);
-	Serial.print(".");
-	Serial.print(getSpacesString(5 - (index.length() + 1)));  // considering the '.' too
+	debugPrint(index);
+	debugPrint(".");
+	debugPrint(getSpacesString(5 - (index.length() + 1)));  // considering the '.' too
 
 	String devFriendlyName = rule_ptr->devFriendlyName;
-	Serial.print(devFriendlyName);
-	Serial.print(getSpacesString(30	- devFriendlyName.length()));
+	debugPrint(devFriendlyName);
+	debugPrint(getSpacesString(30	- devFriendlyName.length()));
 
 	IPAddress ipAddress = (rule_ptr->internalAddr == ipNull) ? WiFi.localIP() : rule_ptr->internalAddr;
 	String internalAddr = ipAddress.toString();
-	Serial.print(internalAddr);
-  Serial.print(getSpacesString(18 - internalAddr.length()));
+	debugPrint(internalAddr);
+	debugPrint(getSpacesString(18 - internalAddr.length()));
 
 	String internalPort = String(rule_ptr->internalPort);
-	Serial.print(internalPort);
-	Serial.print(getSpacesString(7 - internalPort.length()));
+	debugPrint(internalPort);
+	debugPrint(getSpacesString(7 - internalPort.length()));
 
 	String externalPort = String(rule_ptr->externalPort);
-	Serial.print(externalPort);
-	Serial.print(getSpacesString(7 - externalPort.length()));
+	debugPrint(externalPort);
+	debugPrint(getSpacesString(7 - externalPort.length()));
 	
 	String protocol = rule_ptr->protocol;
-	Serial.print(protocol);
-	Serial.print(getSpacesString(7 - protocol.length()));
+	debugPrint(protocol);
+	debugPrint(getSpacesString(7 - protocol.length()));
 
 	String leaseDuration = String(rule_ptr->leaseDuration);
-	Serial.print(leaseDuration);
-	Serial.print(getSpacesString(7 - leaseDuration.length()));
+	debugPrint(leaseDuration);
+	debugPrint(getSpacesString(7 - leaseDuration.length()));
 
-	Serial.println();
+	debugPrintln("");
 }
 
 String TinyUPnP::getSpacesString(int num) {
@@ -1103,7 +1130,7 @@ String TinyUPnP::getPath(String url) {
 }
 
 String TinyUPnP::getTagContent(const String &line, String tagName) {
-	int startIndex = line.indexOf("<" + tagName + ">");
+  int startIndex = line.indexOf("<" + tagName + ">");
   if (startIndex == -1) {
 		debugPrint(F("ERROR: Cannot find tag content in line ["));
 		debugPrint(line);

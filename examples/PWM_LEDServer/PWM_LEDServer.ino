@@ -2,6 +2,8 @@
   Created by Ofek Pearl, September 2017.
 
   Note: This example includes the library EasyDDNS. You'll have to add this package using your Arduino Library Manager.
+        The purpose of this package is to publish your dynamic IP to a DDNS service that will allocate a human readable
+        address to your current IP. If you do not need that, you can remove this dependency.
 */
 
 #include <ESP8266WiFi.h>
@@ -20,7 +22,6 @@ const char* password = "<FILL THIS!>";
 #define DDNS_USERNAME "<FILL THIS!>"
 #define DDNS_PASSWORD "<FILL THIS!>"
 #define DDNS_DOMAIN "<FILL THIS!>"
-unsigned long lastUpdateTime = 0;
 
 TinyUPnP tinyUPnP(20000);  // -1 means blocking, preferably, use a timeout value (ms)
 ESP8266WebServer server(LISTEN_PORT);
@@ -132,9 +133,13 @@ void setup(void) {
   EasyDDNS.client(DDNS_DOMAIN, DDNS_USERNAME, DDNS_PASSWORD);
   
   // server
-  if (MDNS.begin("esp8266")) {
-    Serial.println(F("MDNS responder started"));
+  if (!MDNS.begin("esp8266")) {
+    Serial.println("Error while setting up DDNS service!");
+    while(1) {
+      delay(1000);
+    }
   }
+  Serial.println("DDNS service started");
 
   // fade on and then off to know the device is ready
   for (int i = 0; i < 100; i++) {
