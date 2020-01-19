@@ -490,11 +490,11 @@ void TinyUPnP::removeAllPortMappingsFromIGD() {
 // this will enable receiving SSDP packets after the M-SEARCH multicast message will be broadcasted
 boolean TinyUPnP::connectUDP() {
 #if defined(ESP8266)
-    if (_udpClient.beginMulticast(WiFi.localIP(), ipMulti, UPNP_SSDP_PORT)) {
+    if (_udpClient.beginMulticast(WiFi.localIP(), ipMulti, UPNP_LISTEN_PORT)) {
         return true;
     }
 #else
-    if (_udpClient.beginMulticast(ipMulti, UPNP_SSDP_PORT)) {
+    if (_udpClient.beginMulticast(ipMulti, UPNP_LISTEN_PORT)) {
         return true;
     }
 #endif
@@ -510,17 +510,20 @@ void TinyUPnP::broadcastMSearch() {
     debugPrint(F("Sending M-SEARCH to ["));
     debugPrint(ipMulti.toString());
     debugPrint(F("] Port ["));
-    debugPrint(String(UPNP_SSDP_PORT));
+    debugPrint(String(UPNP_LISTEN_PORT));
     debugPrintln(F("]"));
 
 #if defined(ESP8266)
-    _udpClient.beginPacketMulticast(ipMulti, UPNP_SSDP_PORT, WiFi.localIP());
+    _udpClient.beginPacketMulticast(ipMulti, UPNP_LISTEN_PORT, WiFi.localIP());
 #else
     _udpClient.beginMulticastPacket();
 #endif
 
     strcpy_P(body_tmp, PSTR("M-SEARCH * HTTP/1.1\r\n"));
-    strcat_P(body_tmp, PSTR("HOST: 239.255.255.250:1900\r\n"));
+    strcat_P(body_tmp, PSTR("HOST: 239.255.255.250:"));
+    sprintf(integer_string, "%d", UPNP_SSDP_PORT);
+    strcat_P(body_tmp, integer_string);
+    strcat_P(body_tmp, PSTR("\r\n"));
     strcat_P(body_tmp, PSTR("MAN: \"ssdp:discover\"\r\n"));
     strcat_P(body_tmp, PSTR("MX: 5\r\n"));
     strcat_P(body_tmp, PSTR("ST: urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n\r\n"));
