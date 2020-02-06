@@ -19,6 +19,18 @@
 #define PORT_MAPPING_INVALID_INDEX "<errorDescription>SpecifiedArrayIndexInvalid</errorDescription>"
 #define PORT_MAPPING_INVALID_ACTION "<errorDescription>Invalid Action</errorDescription>"
 
+static const char * const deviceList[] = {
+#if 0
+		"urn:schemas-upnp-org:device:InternetGatewayDevice:2",
+		"urn:schemas-upnp-org:service:WANIPConnection:2",
+#endif
+    "urn:schemas-upnp-org:device:InternetGatewayDevice:1",
+    "urn:schemas-upnp-org:service:WANIPConnection:1",
+    "urn:schemas-upnp-org:service:WANPPPConnection:1",
+    "upnp:rootdevice",
+    0
+};
+
 #define RULE_PROTOCOL_TCP "TCP"
 #define RULE_PROTOCOL_UDP "UDP"
 
@@ -27,8 +39,6 @@
 #define UDP_TX_PACKET_MAX_SIZE 1000  // reduce max UDP packet size to conserve memory (by default UDP_TX_PACKET_MAX_SIZE=8192)
 #define UDP_TX_RESPONSE_MAX_SIZE 8192
 
-const String UPNP_SERVICE_TYPE_1 = "urn:schemas-upnp-org:service:WANPPPConnection:";
-const String UPNP_SERVICE_TYPE_2 = "urn:schemas-upnp-org:service:WANIPConnection:";
 const String UPNP_SERVICE_TYPE_TAG_NAME = "serviceType";
 const String UPNP_SERVICE_TYPE_TAG_START = "<serviceType>";
 const String UPNP_SERVICE_TYPE_TAG_END = "</serviceType>";

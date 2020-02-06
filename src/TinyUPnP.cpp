@@ -519,14 +519,18 @@ void TinyUPnP::broadcastMSearch() {
     _udpClient.beginMulticastPacket();
 #endif
 
-    strcpy_P(body_tmp, PSTR("M-SEARCH * HTTP/1.1\r\n"));
-    strcat_P(body_tmp, PSTR("HOST: 239.255.255.250:"));
-    sprintf(integer_string, "%d", UPNP_SSDP_PORT);
-    strcat_P(body_tmp, integer_string);
-    strcat_P(body_tmp, PSTR("\r\n"));
-    strcat_P(body_tmp, PSTR("MAN: \"ssdp:discover\"\r\n"));
-    strcat_P(body_tmp, PSTR("MX: 5\r\n"));
-    strcat_P(body_tmp, PSTR("ST: urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n\r\n"));
+    for (int i = 0; deviceList[i]; i++) {
+        strcpy_P(body_tmp, PSTR("M-SEARCH * HTTP/1.1\r\n"));
+        strcat_P(body_tmp, PSTR("HOST: 239.255.255.250:"));
+        sprintf(integer_string, "%d", UPNP_SSDP_PORT);
+        strcat_P(body_tmp, integer_string);
+        strcat_P(body_tmp, PSTR("\r\n"));
+        strcat_P(body_tmp, PSTR("MAN: \"ssdp:discover\"\r\n"));
+        strcat_P(body_tmp, PSTR("MX: 5\r\n"));  // allowed number of seconds to wait before replying to this M_SEARCH
+        strcat_P(body_tmp, PSTR("ST: "));
+        strcat_P(body_tmp, deviceList[i]);
+        strcat_P(body_tmp, PSTR("\r\n\r\n"));
+    }
 
     debugPrintln(body_tmp);
 
@@ -546,7 +550,7 @@ void TinyUPnP::broadcastMSearch() {
 // Note: only gateway defined IGD response will be considered, the rest will be ignored
 boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAddress gatewayIP) {
     int packetSize = _udpClient.parsePacket();
-    // only continue is a packet is available
+    // only continue if a packet is available
     if (packetSize <= 0) {
         return false;
     }
@@ -730,28 +734,19 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
         // to support multiple <serviceType> tags
         int service_type_index_start = 0;
         
-        int service_type_1_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_1);
-        if (service_type_1_index >= 0) {
-            service_type_index_start = service_type_1_index;
-            service_type_1_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_END, service_type_index_start);
-        }
-        int service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + UPNP_SERVICE_TYPE_2);
-        if (service_type_2_index >= 0) {
-            service_type_index_start = service_type_2_index;
-            service_type_2_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_END, service_type_index_start);
-        }
-        if (!upnpServiceFound && service_type_1_index >= 0) {
-            index_in_line += service_type_1_index;
-            upnpServiceFound = true;
-            deviceInfo->serviceTypeName = getTagContent(line.substring(service_type_index_start), UPNP_SERVICE_TYPE_TAG_NAME);
-            debugPrintln(deviceInfo->serviceTypeName + " service found!");
-            // will start looking for 'controlURL' now
-        } else if (!upnpServiceFound && service_type_2_index >= 0) {
-            index_in_line += service_type_2_index;
-            upnpServiceFound = true;
-            deviceInfo->serviceTypeName = getTagContent(line.substring(service_type_index_start), UPNP_SERVICE_TYPE_TAG_NAME);
-            debugPrintln(deviceInfo->serviceTypeName + " service found!");
-            // will start looking for 'controlURL' now
+        for (int i = 0; deviceList[i]; i++) {
+            int service_type_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + deviceList[i]);
+            if (service_type_index >= 0) {
+                service_type_index_start = service_type_index;
+                service_type_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_END, service_type_index_start);
+            }
+            if (!upnpServiceFound && service_type_index >= 0) {
+                index_in_line += service_type_index;
+                upnpServiceFound = true;
+                deviceInfo->serviceTypeName = getTagContent(line.substring(service_type_index_start), UPNP_SERVICE_TYPE_TAG_NAME);
+                debugPrintln(deviceInfo->serviceTypeName + " service found! deviceTyep [" + deviceList[i] + "]");
+                break;  // will start looking for 'controlURL' now
+            }
         }
         
         if (upnpServiceFound && (index_in_line = line.indexOf("<controlURL>", index_in_line)) >= 0) {
