@@ -530,17 +530,17 @@ void TinyUPnP::broadcastMSearch() {
         strcat_P(body_tmp, PSTR("ST: "));
         strcat_P(body_tmp, deviceList[i]);
         strcat_P(body_tmp, PSTR("\r\n\r\n"));
-    }
 
-    debugPrintln(body_tmp);
+        debugPrintln(body_tmp);
 
 #if defined(ESP8266)
-    _udpClient.write(body_tmp);
+        _udpClient.write(body_tmp);
 #else
-    _udpClient.print(body_tmp);
+        _udpClient.print(body_tmp);
 #endif
-    
-    _udpClient.endPacket();
+
+        _udpClient.endPacket();
+    }
 
     debugPrintln(F("M-SEARCH sent"));
 }
