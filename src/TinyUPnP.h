@@ -15,7 +15,6 @@
 #define UPNP_DEBUG
 #define UPNP_SSDP_PORT 1900
 #define TCP_CONNECTION_TIMEOUT_MS 6000
-#define INTERNET_GATEWAY_DEVICE "urn:schemas-upnp-org:device:InternetGatewayDevice:1"
 #define PORT_MAPPING_INVALID_INDEX "<errorDescription>SpecifiedArrayIndexInvalid</errorDescription>"
 #define PORT_MAPPING_INVALID_ACTION "<errorDescription>Invalid Action</errorDescription>"
 

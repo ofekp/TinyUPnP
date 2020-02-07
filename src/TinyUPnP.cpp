@@ -602,12 +602,21 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
     debugPrintln(responseBuffer);
 
     // only continue if the packet is a response to M-SEARCH and it originated from a gateway device
-    if (strstr(responseBuffer, INTERNET_GATEWAY_DEVICE) == NULL) {
+    boolean foundIGD = false;
+    for (int i = 0; deviceList[i]; i++) {
+        if (strstr(responseBuffer, deviceList[i]) != NULL) {
+            foundIGD = true;
+            debugPrint(F("IGD of type ["));
+            debugPrint(deviceList[i]);
+            debugPrintln(F("] found"));
+            break;
+        }
+    }
+
+    if (!foundIGD) {
         debugPrintln(F("INTERNET_GATEWAY_DEVICE was not found"));
         return false;
     }
-
-    debugPrintln(F("INTERNET_GATEWAY_DEVICE found"));
 
     String location = "";
     char* location_indexStart = strstr(responseBuffer, "location:");
