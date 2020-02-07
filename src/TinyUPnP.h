@@ -25,6 +25,7 @@ static const char * const deviceList[] = {
     "urn:schemas-upnp-org:service:WANIPConnection:1",
     "urn:schemas-upnp-org:service:WANPPPConnection:1",
     "upnp:rootdevice",
+    "ssdp:all",
     0
 };
 
