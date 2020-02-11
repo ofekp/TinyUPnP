@@ -526,10 +526,12 @@ void TinyUPnP::broadcastMSearch() {
         strcat_P(body_tmp, integer_string);
         strcat_P(body_tmp, PSTR("\r\n"));
         strcat_P(body_tmp, PSTR("MAN: \"ssdp:discover\"\r\n"));
-        strcat_P(body_tmp, PSTR("MX: 5\r\n"));  // allowed number of seconds to wait before replying to this M_SEARCH
+        strcat_P(body_tmp, PSTR("MX: 3\r\n"));  // allowed number of seconds to wait before replying to this M_SEARCH
         strcat_P(body_tmp, PSTR("ST: "));
         strcat_P(body_tmp, deviceList[i]);
-        strcat_P(body_tmp, PSTR("\r\n\r\n"));
+        strcat_P(body_tmp, PSTR("\r\n"));
+        strcat_P(body_tmp, PSTR("USER-AGENT: unix/5.1 UPnP/2.0 TinyUPnP/1.0\r\n"));
+        strcat_P(body_tmp, PSTR("\r\n"));
 
         debugPrintln(body_tmp);
 
@@ -558,6 +560,11 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
     IPAddress remoteIP = _udpClient.remoteIP();
     // only continue if the packet was received from the gateway router
     if (remoteIP != gatewayIP) {
+        debugPrint(F("Discarded packet - gatewayIP ["));
+        debugPrint(gatewayIP.toString());
+        debugPrint(F("] remoteIP ["));
+        debugPrint(ipMulti.toString());
+        debugPrintln(F("]"));
         return false;
     }
 
