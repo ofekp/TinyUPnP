@@ -507,7 +507,7 @@ boolean TinyUPnP::connectUDP() {
 // the router should respond to this message by a packet sent to this device's unicast addresss on the
 // same UPnP port (1900)
 void TinyUPnP::broadcastMSearch() {
-    debugPrint(F("Sending M-SEARCH to ["));
+    debugPrint(F("Sending M-SEARCH (1) to ["));
     debugPrint(ipMulti.toString());
     debugPrint(F("] Port ["));
     debugPrint(String(UPNP_SSDP_PORT));
@@ -524,9 +524,9 @@ void TinyUPnP::broadcastMSearch() {
     sprintf(integer_string, "%d", UPNP_SSDP_PORT);
     strcat_P(body_tmp, integer_string);
     strcat_P(body_tmp, PSTR("\r\n"));
+    strcat_P(body_tmp, PSTR("ST: urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n"));
     strcat_P(body_tmp, PSTR("MAN: \"ssdp:discover\"\r\n"));
-    strcat_P(body_tmp, PSTR("MX: 5\r\n"));
-    strcat_P(body_tmp, PSTR("ST: urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n\r\n"));
+    strcat_P(body_tmp, PSTR("MX: 2\r\n\r\n"));
 
     debugPrintln(body_tmp);
 
@@ -546,14 +546,21 @@ void TinyUPnP::broadcastMSearch() {
 // Note: only gateway defined IGD response will be considered, the rest will be ignored
 boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAddress gatewayIP) {
     int packetSize = _udpClient.parsePacket();
-    // only continue is a packet is available
+    // only continue is a packet if available
     if (packetSize <= 0) {
         return false;
     }
 
+    debugPrintln("M-SEARCH answer received");
+
     IPAddress remoteIP = _udpClient.remoteIP();
     // only continue if the packet was received from the gateway router
     if (remoteIP != gatewayIP) {
+        debugPrint(F("Discarded packet - gatewayIP ["));
+        debugPrint(gatewayIP.toString());
+        debugPrint(F("] remoteIP ["));
+        debugPrint(ipMulti.toString());
+        debugPrintln(F("]"));
         return false;
     }
 
