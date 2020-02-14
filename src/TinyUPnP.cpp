@@ -526,7 +526,7 @@ void TinyUPnP::broadcastMSearch() {
         strcat_P(body_tmp, integer_string);
         strcat_P(body_tmp, PSTR("\r\n"));
         strcat_P(body_tmp, PSTR("MAN: \"ssdp:discover\"\r\n"));
-        strcat_P(body_tmp, PSTR("MX: 3\r\n"));  // allowed number of seconds to wait before replying to this M_SEARCH
+        strcat_P(body_tmp, PSTR("MX: 2\r\n"));  // allowed number of seconds to wait before replying to this M_SEARCH
         strcat_P(body_tmp, PSTR("ST: "));
         strcat_P(body_tmp, deviceList[i]);
         strcat_P(body_tmp, PSTR("\r\n"));
