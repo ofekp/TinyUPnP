@@ -185,7 +185,12 @@ boolean TinyUPnP::getGatewayInfo(gatewayInfo *deviceInfo, long startTime) {
     debugPrintln("");  // \n
     
     broadcastMSearch();
+
     IPAddress gatewayIP = WiFi.gatewayIP();
+    debugPrint(F("Gateway IP ["));
+    debugPrint(gatewayIP.toString());
+    debugPrintln(F("]"));
+    
     while (!waitForUnicastResponseToMSearch(deviceInfo, gatewayIP)) {
         if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
             debugPrintln(F("Timeout expired while waiting for the gateway router to respond to M-SEARCH message"));
@@ -507,7 +512,7 @@ boolean TinyUPnP::connectUDP() {
 // the router should respond to this message by a packet sent to this device's unicast addresss on the
 // same UPnP port (1900)
 void TinyUPnP::broadcastMSearch() {
-    debugPrint(F("Sending M-SEARCH (1) to ["));
+    debugPrint(F("Sending M-SEARCH (2) to ["));
     debugPrint(ipMulti.toString());
     debugPrint(F("] Port ["));
     debugPrint(String(UPNP_SSDP_PORT));
@@ -530,10 +535,18 @@ void TinyUPnP::broadcastMSearch() {
 
     debugPrintln(body_tmp);
 
+    size_t len = strlen(body_tmp);
+    debugPrint(F("M-SEARCH packet length is ["));
+    debugPrint(String(len));
+    debugPrintln(F("]"));
+
 #if defined(ESP8266)
     _udpClient.write(body_tmp);
 #else
-    _udpClient.print(body_tmp);
+    int i = 0;
+    while (body_tmp[i] != 0) {
+        _udpClient.write((uint8_t) body_tmp[i++]);
+    }
 #endif
     
     _udpClient.endPacket();
