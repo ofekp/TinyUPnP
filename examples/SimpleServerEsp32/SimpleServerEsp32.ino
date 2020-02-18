@@ -10,6 +10,7 @@
 #include <ESPmDNS.h>
 #include <TinyUPnP.h>
 #include <EasyDDNS.h>  // see note above
+#include "esp_wifi.h"  // needed to call `esp_wifi_set_ps`
 
 const char* ssid = "<FILL>";
 const char* password = "<FILL THIS!>";
@@ -55,6 +56,7 @@ void setup(void) {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   Serial.println("");
+  esp_wifi_set_ps(WIFI_PS_NONE);
 
   // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
