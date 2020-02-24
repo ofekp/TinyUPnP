@@ -516,7 +516,8 @@ void TinyUPnP::broadcastMSearch() {
 #if defined(ESP8266)
     _udpClient.beginPacketMulticast(ipMulti, UPNP_SSDP_PORT, WiFi.localIP());
 #else
-    _udpClient.beginMulticastPacket();
+    uint8_t beginMulticastPacketRes = _udpClient.beginMulticastPacket();
+    debugPrintln("beginMulticastPacketRes [" + String(beginMulticastPacketRes) + "]");
 #endif
 
     strcpy_P(body_tmp, PSTR("M-SEARCH * HTTP/1.1\r\n"));
@@ -530,13 +531,21 @@ void TinyUPnP::broadcastMSearch() {
 
     debugPrintln(body_tmp);
 
+    size_t len = strlen(body_tmp);
+    debugPrint(F("M-SEARCH packet length is ["));
+    debugPrint(String(len));
+    debugPrintln(F("]"));
+
 #if defined(ESP8266)
     _udpClient.write(body_tmp);
 #else
-    _udpClient.print(body_tmp);
+    //_udpClient.print(body_tmp);
+    int writeRes = _udpClient.write((const uint8_t*) body_tmp, len);
+    debugPrintln("writeRes [" + String(writeRes) + "]");
 #endif
     
-    _udpClient.endPacket();
+    int endPacketRes = _udpClient.endPacket();
+    debugPrintln("endPacketRes [" + String(endPacketRes) + "]");
 
     debugPrintln(F("M-SEARCH sent"));
 }
