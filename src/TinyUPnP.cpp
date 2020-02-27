@@ -494,7 +494,7 @@ boolean TinyUPnP::connectUDP() {
         return true;
     }
 #else
-    if (_udpClient.beginMulticast(ipMulti, 0)) {
+    if (_udpClient.beginMulticast(ipMulti, UPNP_SSDP_PORT)) {
         return true;
     }
 #endif
@@ -539,8 +539,8 @@ void TinyUPnP::broadcastMSearch() {
 #if defined(ESP8266)
     _udpClient.write(body_tmp);
 #else
-    //_udpClient.print(body_tmp);
-    int writeRes = _udpClient.write((const uint8_t*) body_tmp, len);
+    int writeRes = _udpClient.print(body_tmp);
+    //_udpClient.write((const uint8_t*) body_tmp, len);
     debugPrintln("writeRes [" + String(writeRes) + "]");
 #endif
     
@@ -555,10 +555,13 @@ void TinyUPnP::broadcastMSearch() {
 // Note: only gateway defined IGD response will be considered, the rest will be ignored
 boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAddress gatewayIP) {
     int packetSize = _udpClient.parsePacket();
+
     // only continue is a packet is available
     if (packetSize <= 0) {
         return false;
     }
+
+    debugPrintln("here!");
 
     IPAddress remoteIP = _udpClient.remoteIP();
     // only continue if the packet was received from the gateway router
