@@ -561,8 +561,6 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
         return false;
     }
 
-    debugPrintln("here!");
-
     IPAddress remoteIP = _udpClient.remoteIP();
     // only continue if the packet was received from the gateway router
     if (remoteIP != gatewayIP) {

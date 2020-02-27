@@ -67,7 +67,6 @@ void connectWiFi() {
   WiFi.begin(ssid, password);
 
   // flash twice to know that we are trying to connect to the WiFi
-  Serial.println(F("here 1"));
   setPower(50);
   delay(200);
   setPower(0);
@@ -75,16 +74,12 @@ void connectWiFi() {
   setPower(50);
   delay(200);
   setPower(0);
-
-  Serial.println(F("here 2"));
 
   // wait for connection
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(F("."));
   }
-
-  Serial.println(F("here 3"));
   
   Serial.println(F(""));
   Serial.print(F("Connected to "));
