@@ -315,7 +315,7 @@ boolean TinyUPnP::testConnectivity(unsigned long startTime) {
         delay(200);
         debugPrint(".");
     }
-    debugPrintln(" ==> GOOD");  // \n
+    debugPrintln(F(" ==> GOOD"));  // \n
 
     debugPrint(F("Testing internet connection"));
     _wifiClient.connect(connectivityTestIp, 80);
@@ -336,12 +336,17 @@ boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo, upnpRule *rule_ptr)
     if (!applyActionOnSpecificPortMapping(&SOAPActionGetSpecificPortMappingEntry ,deviceInfo, rule_ptr)) {
         return false;
     }
+
+    debugPrintln(F("Inside verifyPortMapping"));
     
     // TODO: extract the current lease duration and return it instead of a boolean
     boolean isSuccess = false;
     boolean detectedChangedIP = false;
+    debugPrintln(F("Checking available data"));
     while (_wifiClient.available()) {
+        debugPrintln(F("Found available data"));
         String line = _wifiClient.readStringUntil('\r');
+        debugPrintln(F("Read available data"));
         debugPrint(line);
         if (line.indexOf(F("errorCode")) >= 0) {
             isSuccess = false;
@@ -517,7 +522,9 @@ void TinyUPnP::broadcastMSearch() {
     _udpClient.beginPacketMulticast(ipMulti, UPNP_SSDP_PORT, WiFi.localIP());
 #else
     uint8_t beginMulticastPacketRes = _udpClient.beginMulticastPacket();
-    debugPrintln("beginMulticastPacketRes [" + String(beginMulticastPacketRes) + "]");
+    debugPrint(F("beginMulticastPacketRes ["));
+    debugPrint(String(beginMulticastPacketRes));
+    debugPrintln(F("]"));
 #endif
 
     strcpy_P(body_tmp, PSTR("M-SEARCH * HTTP/1.1\r\n"));
@@ -541,11 +548,15 @@ void TinyUPnP::broadcastMSearch() {
 #else
     int writeRes = _udpClient.print(body_tmp);
     //_udpClient.write((const uint8_t*) body_tmp, len);
-    debugPrintln("writeRes [" + String(writeRes) + "]");
+    debugPrint(F("writeRes ["));
+    debugPrint(String(writeRes));
+    debugPrintln(F("]"));
 #endif
     
     int endPacketRes = _udpClient.endPacket();
-    debugPrintln("endPacketRes [" + String(endPacketRes) + "]");
+    debugPrint(F("endPacketRes ["));
+    debugPrint(String(endPacketRes));
+    debugPrintln(F("]"));
 
     debugPrintln(F("M-SEARCH sent"));
 }
@@ -681,7 +692,7 @@ boolean TinyUPnP::connectToIGD(IPAddress host, int port) {
 
 // updates deviceInfo with the commands' information of the IGD
 boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
-    debugPrintln("called getIGDEventURLs");
+    debugPrintln(F("called getIGDEventURLs"));
     debugPrint(F("deviceInfo->actionPath ["));
     debugPrint(deviceInfo->actionPath);
     debugPrint(F("] deviceInfo->path ["));
@@ -1042,7 +1053,7 @@ void TinyUPnP::upnpRuleToString(upnpRule *rule_ptr) {
 
     String devFriendlyName = rule_ptr->devFriendlyName;
     debugPrint(devFriendlyName);
-    debugPrint(getSpacesString(30	- devFriendlyName.length()));
+    debugPrint(getSpacesString(30 - devFriendlyName.length()));
 
     IPAddress ipAddress = (rule_ptr->internalAddr == ipNull) ? WiFi.localIP() : rule_ptr->internalAddr;
     String internalAddr = ipAddress.toString();
@@ -1139,7 +1150,9 @@ String TinyUPnP::getPath(String url) {
     }
     int firstSlashIndex = url.indexOf("/");
     if (firstSlashIndex == -1) {
-        debugPrintln("ERROR: Cannot find path in url [" + url + "]");
+        debugPrint(F("ERROR: Cannot find path in url ["));
+        debugPrint(url);
+        debugPrintln(F("]"));
         return "";
     }
     return url.substring(firstSlashIndex, url.length());
