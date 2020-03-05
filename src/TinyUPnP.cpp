@@ -343,7 +343,7 @@ boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo, upnpRule *rule_ptr)
     boolean isSuccess = false;
     boolean detectedChangedIP = false;
     debugPrintln(F("Checking available data"));
-    while (_wifiClient.available()) {
+    while (_wifiClient.connected() && _wifiClient.available()) {
         debugPrintln(F("Found available data"));
         String line = _wifiClient.readStringUntil('\r');
         debugPrintln(F("Read available data"));
@@ -351,7 +351,7 @@ boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo, upnpRule *rule_ptr)
         if (line.indexOf(F("errorCode")) >= 0) {
             isSuccess = false;
             // flush response and exit loop
-            while (_wifiClient.available()) {
+            while (_wifiClient.connected() && _wifiClient.available()) {
                 line = _wifiClient.readStringUntil('\r');
                 debugPrint(line);
             }
