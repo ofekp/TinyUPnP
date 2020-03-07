@@ -94,6 +94,7 @@ enum portMappingResult {
     EMPTY_PORT_MAPPING_CONFIG,
     NETWORK_ERROR,
     TIMEOUT,
+    VERIFICATION_FAILED,
     NOP  // the check is delayed
 };
 

@@ -119,7 +119,7 @@ void setup(void) {
     portMappingAdded = tinyUPnP.commitPortMappings();
     Serial.println("");
   
-    if (!portMappingAdded) {
+    if (portMappingAdded != SUCCESS && portMappingAdded != ALREADY_MAPPED) {
       // for debugging, you can see this in your router too under forwarding or UPnP
       tinyUPnP.printAllPortMappings();
       Serial.println(F("This was printed because adding the required port mapping failed"));

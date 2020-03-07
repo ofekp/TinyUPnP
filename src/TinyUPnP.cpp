@@ -74,7 +74,7 @@ void TinyUPnP::addPortMappingConfig(IPAddress ruleIP, int rulePort, String ruleP
         while (currNode->next != NULL) {
             currNode = currNode->next;
         }
-    currNode->next = newUpnpRuleNode;
+        currNode->next = newUpnpRuleNode;
     }
 }
 
@@ -112,7 +112,6 @@ portMappingResult TinyUPnP::commitPortMappings() {
     // double verify gateway information is valid
     if (!isGatewayInfoValid(&_gwInfo)) {
         debugPrintln(F("ERROR: Invalid router info, cannot continue"));
-        _wifiClient.stop();
         return NETWORK_ERROR;
     }
 
@@ -131,7 +130,7 @@ portMappingResult TinyUPnP::commitPortMappings() {
         debugPrintln(F("]"));
         bool currPortMappingAlreadyExists = true;  // for debug
         // TODO: since verifyPortMapping connects to the IGD then addPortMappingEntry can skip it
-        while (!verifyPortMapping(&_gwInfo, currNode->upnpRule)) {
+        if (!verifyPortMapping(&_gwInfo, currNode->upnpRule)) {
             // need to add the port mapping
             currPortMappingAlreadyExists = false;
             allPortMappingsAlreadyExist = false;
@@ -141,7 +140,20 @@ portMappingResult TinyUPnP::commitPortMappings() {
                 return TIMEOUT;
             }
             addPortMappingEntry(&_gwInfo, currNode->upnpRule);
-            delay(1000);  // longer delay to allow more time for the router to update its rules
+
+            int tries = 0;
+            while (tries <= 3) {
+                delay(2000);  // longer delay to allow more time for the router to update its rules
+                if (verifyPortMapping(&_gwInfo, currNode->upnpRule)) {
+                    break;
+                }
+                tries++;
+            }
+            
+            if (tries > 3) {
+                _wifiClient.stop();
+                return VERIFICATION_FAILED;
+            }
         }
 
         if (!currPortMappingAlreadyExists) {
@@ -291,7 +303,9 @@ portMappingResult TinyUPnP::updatePortMappings(unsigned long intervalMs, callbac
             return result;
         } else {
             _lastUpdateTime += intervalMs / 2;  // delay next try
-            debugPrintln(F("ERROR: While updating UPnP port mapping"));
+            debugPrint(F("ERROR: While updating UPnP port mapping. Failed with error code ["));
+            debugPrint(String(result));
+            debugPrintln(F("]"));
             _wifiClient.stop();
             _consequtiveFails++;
             return result;
@@ -343,7 +357,7 @@ boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo, upnpRule *rule_ptr)
     boolean isSuccess = false;
     boolean detectedChangedIP = false;
     debugPrintln(F("Checking available data"));
-    while (_wifiClient.connected() && _wifiClient.available()) {
+    while (_wifiClient.available()) {
         debugPrintln(F("Found available data"));
         String line = _wifiClient.readStringUntil('\r');
         debugPrintln(F("Read available data"));
@@ -351,7 +365,7 @@ boolean TinyUPnP::verifyPortMapping(gatewayInfo *deviceInfo, upnpRule *rule_ptr)
         if (line.indexOf(F("errorCode")) >= 0) {
             isSuccess = false;
             // flush response and exit loop
-            while (_wifiClient.connected() && _wifiClient.available()) {
+            while (_wifiClient.available()) {
                 line = _wifiClient.readStringUntil('\r');
                 debugPrint(line);
             }
@@ -795,7 +809,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
             }
         }
     }
-
+    
     return false;
 }
 
@@ -898,7 +912,7 @@ boolean TinyUPnP::addPortMappingEntry(gatewayInfo *deviceInfo, upnpRule *rule_pt
     return isSuccess;
 }
 
-boolean TinyUPnP::printAllPortMappings() {	
+boolean TinyUPnP::printAllPortMappings() {
     // verify gateway information is valid
     // TODO: use this _gwInfo to skip the UDP part completely if it is not empty
     if (!isGatewayInfoValid(&_gwInfo)) {
@@ -914,9 +928,10 @@ boolean TinyUPnP::printAllPortMappings() {
     int index = 0;
     while (!reachedEnd) {
         // connect to IGD (TCP connection) again, if needed, in case we got disconnected after the previous query
+        unsigned long timeout = millis() + TCP_CONNECTION_TIMEOUT_MS;
         if (!_wifiClient.connected()) {
             while (!connectToIGD(_gwInfo.host, _gwInfo.actionPort)) {
-                if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
+                if (millis() > timeout) {
                     debugPrint(F("Timeout expired while trying to connect to the IGD"));
                     _wifiClient.stop();
                     return false;
@@ -963,9 +978,9 @@ boolean TinyUPnP::printAllPortMappings() {
         _wifiClient.println(body_tmp);
         _wifiClient.println();
   
-        unsigned long timeout = millis();
+        timeout = millis() + TCP_CONNECTION_TIMEOUT_MS;
         while (_wifiClient.available() == 0) {
-            if (millis() - timeout > TCP_CONNECTION_TIMEOUT_MS) {
+            if (millis() > timeout) {
                 debugPrintln(F("TCP connection timeout while retrieving port mappings"));
                 _wifiClient.stop();
                 return false;
