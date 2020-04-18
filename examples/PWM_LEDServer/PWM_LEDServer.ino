@@ -112,9 +112,9 @@ void setup(void) {
 
   connectWiFi();
 
-  boolean portMappingAdded = false;
+  portMappingResult portMappingAdded = false;
   tinyUPnP.addPortMappingConfig(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
-  while (!portMappingAdded) {
+  while (portMappingAdded != SUCCESS && portMappingAdded != ALREADY_MAPPED) {
     portMappingAdded = tinyUPnP.commitPortMappings();
     Serial.println("");
   

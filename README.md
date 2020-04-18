@@ -107,6 +107,10 @@ I hope this helps.
 Referenced from my answer here:
 https://stackoverflow.com/a/46267791/4295037
 
+Detailed Document Released by UPnP Forum
+=
+http://upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v2.0.pdf
+
 DDNS
 =
 You will also need a DDNS update service
