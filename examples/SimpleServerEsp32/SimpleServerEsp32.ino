@@ -113,7 +113,7 @@ void setup(void) {
 
   connectWiFi();
 
-  portMappingResult portMappingAdded = false;
+  portMappingResult portMappingAdded;
   tinyUPnP.addPortMappingConfig(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
   while (portMappingAdded != SUCCESS && portMappingAdded != ALREADY_MAPPED) {
     portMappingAdded = tinyUPnP.commitPortMappings();

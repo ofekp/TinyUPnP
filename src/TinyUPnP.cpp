@@ -787,9 +787,9 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
             int service_type_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + deviceList[i]);
             if (service_type_index >= 0) {
                 debugPrint(F("["));
-                debugPrint(deviceInfo->serviceTypeName)
+                debugPrint(deviceInfo->serviceTypeName);
                 debugPrint(F("] service_type_index ["));
-                debugPrint(String(service_type_1_index));
+                debugPrint(String(service_type_index));
                 debugPrintln("]");
                 service_type_index_start = service_type_index;
                 service_type_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_END, service_type_index_start);
@@ -799,7 +799,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
                 upnpServiceFound = true;
                 deviceInfo->serviceTypeName = getTagContent(line.substring(service_type_index_start), UPNP_SERVICE_TYPE_TAG_NAME);
                 debugPrint(F("["));
-                debugPrint(deviceInfo->serviceTypeName)
+                debugPrint(deviceInfo->serviceTypeName);
                 debugPrint(F("] service found! deviceType ["));
                 debugPrint(deviceList[i]);
                 debugPrintln(F("]"));
