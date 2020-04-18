@@ -1,7 +1,7 @@
 /*
-  TinyUPnP.h - Library for creating UPnP rules automatically in your router.
-  Created by Ofek Pearl, September 2017.
-  Released into the public domain.
+ * TinyUPnP.h - Library for creating UPnP rules automatically in your router.
+ * Created by Ofek Pearl, September 2017.
+ * Released into the public domain.
 */
 
 #ifndef TinyUPnP_h

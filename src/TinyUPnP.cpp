@@ -1,9 +1,7 @@
 /*
-  TinyUPnP.h - Library for creating UPnP rules automatically in your router.
-  Created by Ofek Pearl, September 2017.
+ * TinyUPnP.h - Library for creating UPnP rules automatically in your router.
+ * Created by Ofek Pearl, September 2017.
 */
-
-#include <Arduino.h>
 
 #if defined(ESP8266)
     #include <ESP8266WiFi.h>
