@@ -119,7 +119,7 @@ portMappingResult TinyUPnP::commitPortMappings() {
         _wifiClient.stop();
     }
 
-    bool allPortMappingsAlreadyExist = true;  // for debug
+    /*bool allPortMappingsAlreadyExist = true;  // for debug
     int addedPortMappings = 0;  // for debug
     upnpRuleNode *currNode = _headRuleNode;
     while (currNode != NULL) {
@@ -163,11 +163,11 @@ portMappingResult TinyUPnP::commitPortMappings() {
         }
 
         currNode = currNode->next;
-    }
+    } */
 
     _wifiClient.stop();
     
-    if (allPortMappingsAlreadyExist) {
+    /* if (allPortMappingsAlreadyExist) {
         debugPrintln(F("All port mappings were already found in the IGD, not doing anything"));
         return ALREADY_MAPPED;
     } else {
@@ -178,7 +178,7 @@ portMappingResult TinyUPnP::commitPortMappings() {
         } else {
             debugPrintln(F("One UPnP port mapping was added"));
         }
-    }
+    } */
 
     return SUCCESS;
 }
@@ -590,14 +590,14 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
 
     IPAddress remoteIP = _udpClient.remoteIP();
     // only continue if the packet was received from the gateway router
-    if (remoteIP != gatewayIP) {
-        debugPrint(F("Discarded packet not originating from IGD - gatewayIP ["));
-        debugPrint(gatewayIP.toString());
-        debugPrint(F("] remoteIP ["));
-        debugPrint(ipMulti.toString());
-        debugPrintln(F("]"));
-        return false;
-    }
+    // if (remoteIP != gatewayIP) {
+    //     debugPrint(F("Discarded packet not originating from IGD - gatewayIP ["));
+    //     debugPrint(gatewayIP.toString());
+    //     debugPrint(F("] remoteIP ["));
+    //     debugPrint(ipMulti.toString());
+    //     debugPrintln(F("]"));
+    //     return false;
+    // }
 
     debugPrint(F("Received packet of size ["));
     debugPrint(String(packetSize));
@@ -651,10 +651,10 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
         }
     }
 
-    if (!foundIGD) {
-        debugPrintln(F("IGD was not found"));
-        return false;
-    }
+    // if (!foundIGD) {
+    //     debugPrintln(F("IGD was not found"));
+    //     return false;
+    // }
 
     String location = "";
     char* location_indexStart = strstr(responseBuffer, "location:");
@@ -685,7 +685,7 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
         return false;
     }
     
-    debugPrint(F("IGD location found ["));
+    debugPrint(F("Device location found ["));
     debugPrint(location);
     debugPrintln(F("]"));
   
@@ -699,11 +699,11 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
     // the following is the default and may be overridden if URLBase tag is specified
     deviceInfo->actionPort = port;
     
-    debugPrintln(host.toString());
-    debugPrintln(String(port));
-    debugPrintln(path);
+    // debugPrintln(host.toString());
+    // debugPrintln(String(port));
+    // debugPrintln(path);
 
-    return true;
+    return false;
 }
 
 // a single trial to connect to the IGD (with TCP)

@@ -19,13 +19,13 @@
 #define PORT_MAPPING_INVALID_ACTION "<errorDescription>Invalid Action</errorDescription>"
 
 static const char * const deviceList[] = {
-    "urn:schemas-upnp-org:device:InternetGatewayDevice:1",
-    "urn:schemas-upnp-org:device:InternetGatewayDevice:2",
-    "urn:schemas-upnp-org:service:WANIPConnection:1",
-    "urn:schemas-upnp-org:service:WANIPConnection:2",
-    "urn:schemas-upnp-org:service:WANPPPConnection:1",
+    // "urn:schemas-upnp-org:device:InternetGatewayDevice:1",
+    // "urn:schemas-upnp-org:device:InternetGatewayDevice:2",
+    // "urn:schemas-upnp-org:service:WANIPConnection:1",
+    // "urn:schemas-upnp-org:service:WANIPConnection:2",
+    // "urn:schemas-upnp-org:service:WANPPPConnection:1",
     // "upnp:rootdevice",
-    // "ssdp:all",
+    "ssdp:all",
     0
 };
 
