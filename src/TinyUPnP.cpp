@@ -202,7 +202,8 @@ boolean TinyUPnP::getGatewayInfo(gatewayInfo *deviceInfo, long startTime) {
     debugPrint(gatewayIP.toString());
     debugPrintln(F("]"));
 
-    while (!waitForUnicastResponseToMSearch(deviceInfo, gatewayIP)) {
+    ssdpDevice* ssdpDevice_ptr = NULL;
+    while ((ssdpDevice_ptr = waitForUnicastResponseToMSearch(gatewayIP)) == NULL) {
         if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
             debugPrintln(F("Timeout expired while waiting for the gateway router to respond to M-SEARCH message"));
             _udpClient.stop();
@@ -210,6 +211,12 @@ boolean TinyUPnP::getGatewayInfo(gatewayInfo *deviceInfo, long startTime) {
         }
         delay(1);
     }
+
+    deviceInfo->host = ssdpDevice_ptr->host;
+    deviceInfo->port = ssdpDevice_ptr->port;
+    deviceInfo->path = ssdpDevice_ptr->path;
+    // the following is the default and may be overridden if URLBase tag is specified
+    deviceInfo->actionPort = ssdpDevice_ptr->port;
 
     // close the UDP connection
     _udpClient.stop();
@@ -526,7 +533,7 @@ boolean TinyUPnP::connectUDP() {
 // broadcast an M-SEARCH message to initiate messages from SSDP devices
 // the router should respond to this message by a packet sent to this device's unicast addresss on the
 // same UPnP port (1900)
-void TinyUPnP::broadcastMSearch() {
+void TinyUPnP::broadcastMSearch(bool isSsdpAll /*=false*/) {
     debugPrint(F("Sending M-SEARCH to ["));
     debugPrint(ipMulti.toString());
     debugPrint(F("] Port ["));
@@ -541,6 +548,11 @@ void TinyUPnP::broadcastMSearch() {
     debugPrint(String(beginMulticastPacketRes));
     debugPrintln(F("]"));
 #endif
+
+    const char * const * deviceList = deviceListUpnp;
+    if (isSsdpAll) {
+        deviceList = deviceListSsdpAll;
+    }
 
     for (int i = 0; deviceList[i]; i++) {
         strcpy_P(body_tmp, PSTR("M-SEARCH * HTTP/1.1\r\n"));
@@ -577,26 +589,112 @@ void TinyUPnP::broadcastMSearch() {
     debugPrintln(F("M-SEARCH packets sent"));
 }
 
+ssdpDeviceNode* TinyUPnP::listSsdpDevices() {
+    if (_timeoutMs <= 0) {
+        debugPrintln("Timeout must be set when initializing TinyUPnP to use this method, exiting.");
+        return NULL;
+    }
+
+    unsigned long startTime = millis();
+    while (!connectUDP()) {
+        if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
+            debugPrint(F("Timeout expired while connecting UDP"));
+            _udpClient.stop();
+            return NULL;
+        }
+        delay(500);
+        debugPrint(".");
+    }
+    debugPrintln("");  // \n
+    
+    broadcastMSearch(true);
+    IPAddress gatewayIP = WiFi.gatewayIP();
+
+    debugPrint(F("Gateway IP ["));
+    debugPrint(gatewayIP.toString());
+    debugPrintln(F("]"));
+
+    ssdpDeviceNode *ssdpDeviceNode_head = NULL;
+    ssdpDeviceNode *ssdpDeviceNode_tail = NULL;
+    ssdpDeviceNode *ssdpDeviceNode_ptr = NULL;
+    ssdpDevice *ssdpDevice_ptr;
+    while (true) {
+        ssdpDevice_ptr = waitForUnicastResponseToMSearch(ipNull);  // NULL will cause finding all SSDP device (not just the IGD)
+        if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
+            debugPrintln(F("Timeout expired while waiting for the gateway router to respond to M-SEARCH message"));
+            _udpClient.stop();
+            break;
+        }
+
+        //ssdpDeviceToString(ssdpDevice_ptr);
+        
+        if (ssdpDevice_ptr != NULL) {
+            if (ssdpDeviceNode_head == NULL) {
+                ssdpDeviceNode_head = new ssdpDeviceNode();
+                ssdpDeviceNode_head->ssdpDevice = ssdpDevice_ptr;
+                ssdpDeviceNode_head->next = NULL;
+                ssdpDeviceNode_tail = ssdpDeviceNode_head;
+            } else {
+                ssdpDeviceNode_ptr = new ssdpDeviceNode();
+                ssdpDeviceNode_ptr->ssdpDevice = ssdpDevice_ptr;
+                ssdpDeviceNode_tail->next = ssdpDeviceNode_ptr;
+                ssdpDeviceNode_tail = ssdpDeviceNode_ptr;
+            }
+        }
+
+        delay(5);
+    }
+
+    // close the UDP connection
+    _udpClient.stop();
+
+    // dedup SSDP devices fromt the list - O(n^2)
+    ssdpDeviceNode_ptr = ssdpDeviceNode_head;
+    while (ssdpDeviceNode_ptr != NULL) {
+        ssdpDeviceNode *ssdpDeviceNodePrev_ptr = ssdpDeviceNode_ptr;
+        ssdpDeviceNode *ssdpDeviceNodeCurr_ptr = ssdpDeviceNode_ptr->next;
+
+        while (ssdpDeviceNodeCurr_ptr != NULL) {
+            if (ssdpDeviceNodeCurr_ptr->ssdpDevice->host == ssdpDeviceNode_ptr->ssdpDevice->host
+                && ssdpDeviceNodeCurr_ptr->ssdpDevice->port == ssdpDeviceNode_ptr->ssdpDevice->port
+                && ssdpDeviceNodeCurr_ptr->ssdpDevice->path == ssdpDeviceNode_ptr->ssdpDevice->path) {
+                // delete ssdpDeviceNode from the list
+                ssdpDeviceNodePrev_ptr->next = ssdpDeviceNodeCurr_ptr->next;
+                free(ssdpDeviceNodeCurr_ptr->ssdpDevice);
+                free(ssdpDeviceNodeCurr_ptr);
+                ssdpDeviceNodeCurr_ptr = ssdpDeviceNodePrev_ptr->next;
+            } else {
+                ssdpDeviceNodePrev_ptr = ssdpDeviceNodeCurr_ptr;
+                ssdpDeviceNodeCurr_ptr = ssdpDeviceNodeCurr_ptr->next;
+            }
+        }
+        ssdpDeviceNode_ptr = ssdpDeviceNode_ptr->next;
+    }
+
+    return ssdpDeviceNode_head;
+}
+
 // Assuming an M-SEARCH message was broadcaseted, wait for the response from the IGD (Internet Gateway Device)
 // Note: the response from the IGD is sent back as unicast to this device
 // Note: only gateway defined IGD response will be considered, the rest will be ignored
-boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAddress gatewayIP) {
+ssdpDevice* TinyUPnP::waitForUnicastResponseToMSearch(IPAddress gatewayIP) {
     int packetSize = _udpClient.parsePacket();
 
     // only continue if a packet is available
     if (packetSize <= 0) {
-        return false;
+        return NULL;
     }
 
     IPAddress remoteIP = _udpClient.remoteIP();
     // only continue if the packet was received from the gateway router
-    if (remoteIP != gatewayIP) {
+    // for SSDP discovery we continue anyway
+    if (gatewayIP != ipNull && remoteIP != gatewayIP) {
         debugPrint(F("Discarded packet not originating from IGD - gatewayIP ["));
         debugPrint(gatewayIP.toString());
         debugPrint(F("] remoteIP ["));
         debugPrint(ipMulti.toString());
         debugPrintln(F("]"));
-        return false;
+        return NULL;
     }
 
     debugPrint(F("Received packet of size ["));
@@ -616,7 +714,7 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
     // sanity check
     if (packetSize > UDP_TX_RESPONSE_MAX_SIZE) {
         debugPrint(F("Received packet with size larged than the response buffer, cannot proceed."));
-        return false;
+        return NULL;
     }
   
     int idx = 0;
@@ -639,21 +737,29 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
     debugPrintln(F("Gateway packet content:"));
     debugPrintln(responseBuffer);
 
-    // only continue if the packet is a response to M-SEARCH and it originated from a gateway device
-    boolean foundIGD = false;
-    for (int i = 0; deviceList[i]; i++) {
-        if (strstr(responseBuffer, deviceList[i]) != NULL) {
-            foundIGD = true;
-            debugPrint(F("IGD of type ["));
-            debugPrint(deviceList[i]);
-            debugPrintln(F("] found"));
-            break;
-        }
+    const char * const * deviceList = deviceListUpnp;
+    if (gatewayIP == ipNull) {
+        deviceList = deviceListSsdpAll;
     }
 
-    if (!foundIGD) {
-        debugPrintln(F("IGD was not found"));
-        return false;
+    // only continue if the packet is a response to M-SEARCH and it originated from a gateway device
+    // for SSDP discovery we continue anyway
+    if (gatewayIP != ipNull) {  // for the use of listSsdpDevices
+        boolean foundIGD = false;
+        for (int i = 0; deviceList[i]; i++) {
+            if (strstr(responseBuffer, deviceList[i]) != NULL) {
+                foundIGD = true;
+                debugPrint(F("IGD of type ["));
+                debugPrint(deviceList[i]);
+                debugPrintln(F("] found"));
+                break;
+            }
+        }
+
+        if (!foundIGD) {
+            debugPrintln(F("IGD was not found"));
+            return NULL;
+        }
     }
 
     String location = "";
@@ -678,32 +784,32 @@ boolean TinyUPnP::waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAdd
             location.trim();
         } else {
             debugPrintln(F("ERROR: could not extract value from LOCATION param"));
-            return false;
+            return NULL;
         }
     } else {
         debugPrintln(F("ERROR: LOCATION param was not found"));
-        return false;
+        return NULL;
     }
     
-    debugPrint(F("IGD location found ["));
+    debugPrint(F("Device location found ["));
     debugPrint(location);
     debugPrintln(F("]"));
   
     IPAddress host = getHost(location);
     int port = getPort(location);
     String path = getPath(location);
-    
-    deviceInfo->host = host;
-    deviceInfo->port = port;
-    deviceInfo->path = path;
-    // the following is the default and may be overridden if URLBase tag is specified
-    deviceInfo->actionPort = port;
-    
-    debugPrintln(host.toString());
-    debugPrintln(String(port));
-    debugPrintln(path);
 
-    return true;
+    ssdpDevice *newSsdpDevice_ptr = new ssdpDevice();
+    
+    newSsdpDevice_ptr->host = host;
+    newSsdpDevice_ptr->port = port;
+    newSsdpDevice_ptr->path = path;
+    
+    // debugPrintln(host.toString());
+    // debugPrintln(String(port));
+    // debugPrintln(path);
+
+    return newSsdpDevice_ptr;
 }
 
 // a single trial to connect to the IGD (with TCP)
@@ -781,8 +887,8 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
         // to support multiple <serviceType> tags
         int service_type_index_start = 0;
         
-        for (int i = 0; deviceList[i]; i++) {
-            int service_type_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + deviceList[i]);
+        for (int i = 0; deviceListUpnp[i]; i++) {
+            int service_type_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + deviceListUpnp[i]);
             if (service_type_index >= 0) {
                 debugPrint(F("["));
                 debugPrint(deviceInfo->serviceTypeName);
@@ -799,7 +905,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
                 debugPrint(F("["));
                 debugPrint(deviceInfo->serviceTypeName);
                 debugPrint(F("] service found! deviceType ["));
-                debugPrint(deviceList[i]);
+                debugPrint(deviceListUpnp[i]);
                 debugPrintln(F("]"));
                 break;  // will start looking for 'controlURL' now
             }
@@ -938,7 +1044,7 @@ boolean TinyUPnP::printAllPortMappings() {
     
     upnpRuleNode *ruleNodeHead_ptr = NULL;
     upnpRuleNode *ruleNodeTail_ptr = NULL;
-    
+
     unsigned long startTime = millis();
     boolean reachedEnd = false;
     int index = 0;
@@ -1108,6 +1214,24 @@ void TinyUPnP::upnpRuleToString(upnpRule *rule_ptr) {
     debugPrint(getSpacesString(7 - leaseDuration.length()));
 
     debugPrintln("");
+}
+
+void TinyUPnP::printSsdpDevices(ssdpDeviceNode* ssdpDeviceNode_head) {
+    ssdpDeviceNode *ssdpDeviceNodeCurr = ssdpDeviceNode_head;
+    while (ssdpDeviceNodeCurr != NULL) {
+        ssdpDeviceToString(ssdpDeviceNodeCurr->ssdpDevice);
+        ssdpDeviceNodeCurr = ssdpDeviceNodeCurr->next;
+    }
+}
+
+void TinyUPnP::ssdpDeviceToString(ssdpDevice* ssdpDevice) {
+    debugPrint(F("SSDP device ["));
+    debugPrint(ssdpDevice->host.toString());
+    debugPrint(F("] port ["));
+    debugPrint(String(ssdpDevice->port));
+    debugPrint(F("] path ["));
+    debugPrint(ssdpDevice->path);
+    debugPrintln(F("]"));
 }
 
 String TinyUPnP::getSpacesString(int num) {

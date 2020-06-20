@@ -18,14 +18,18 @@
 #define PORT_MAPPING_INVALID_INDEX "<errorDescription>SpecifiedArrayIndexInvalid</errorDescription>"
 #define PORT_MAPPING_INVALID_ACTION "<errorDescription>Invalid Action</errorDescription>"
 
-static const char * const deviceList[] = {
+static const char * const deviceListUpnp[] = {
     "urn:schemas-upnp-org:device:InternetGatewayDevice:1",
     "urn:schemas-upnp-org:device:InternetGatewayDevice:2",
     "urn:schemas-upnp-org:service:WANIPConnection:1",
     "urn:schemas-upnp-org:service:WANIPConnection:2",
     "urn:schemas-upnp-org:service:WANPPPConnection:1",
     // "upnp:rootdevice",
-    // "ssdp:all",
+    0
+};
+
+static const char * const deviceListSsdpAll[] = {
+    "ssdp:all",
     0
 };
 
@@ -96,6 +100,17 @@ typedef struct _upnpRuleNode {
     _upnpRuleNode *next;
 } upnpRuleNode;
 
+typedef struct _ssdpDevice {
+    IPAddress host;
+    int port;  // this port is used when getting router capabilities and xml files
+    String path;  // this is the path that is used to retrieve router information from xml files
+} ssdpDevice;
+
+typedef struct _ssdpDeviceNode {
+    _ssdpDevice *ssdpDevice;
+    _ssdpDeviceNode *next;
+} ssdpDeviceNode;
+
 enum portMappingResult {
     SUCCESS,  // port mapping was added
     ALREADY_MAPPED,  // the port mapping is already found in the IGD
@@ -119,10 +134,13 @@ class TinyUPnP
         boolean printAllPortMappings();
         void printPortMappingConfig();  // prints all the port mappings that were added using `addPortMappingConfig`
         boolean testConnectivity(unsigned long startTime = 0);
+        /* API extensions - additional methods to the UPnP API */
+        ssdpDeviceNode* listSsdpDevices();  // will create an object with all SSDP devices on the network
+        void printSsdpDevices(ssdpDeviceNode* ssdpDeviceNode);  // will print all SSDP devices in teh list
     private:
         boolean connectUDP();
-        void broadcastMSearch();
-        boolean waitForUnicastResponseToMSearch(gatewayInfo *deviceInfo, IPAddress gatewayIP);
+        void broadcastMSearch(bool isSsdpAll = false);
+        ssdpDevice* waitForUnicastResponseToMSearch(IPAddress gatewayIP);
         boolean getGatewayInfo(gatewayInfo *deviceInfo, long startTime);
         boolean isGatewayInfoValid(gatewayInfo *deviceInfo);
         void clearGatewayInfo(gatewayInfo *deviceInfo);
@@ -140,11 +158,12 @@ class TinyUPnP
         int getPort(String url);
         String getPath(String url);
         String getTagContent(const String &line, String tagName);
+        void ssdpDeviceToString(ssdpDevice* ssdpDevice);
 
         /* members */
         upnpRuleNode *_headRuleNode;
         unsigned long _lastUpdateTime;
-        unsigned long _timeoutMs;  // 0 for blocking operation
+        long _timeoutMs;  // 0 for blocking operation
         WiFiUDP _udpClient;
         WiFiClient _wifiClient;
         gatewayInfo _gwInfo;

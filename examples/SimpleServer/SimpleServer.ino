@@ -84,13 +84,13 @@ void setup(void) {
 
   connectWiFi();
 
-  boolean portMappingAdded = false;
+  portMappingResult portMappingAdded;
   tinyUPnP.addPortMappingConfig(WiFi.localIP(), LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
-  while (!portMappingAdded) {
+  while (portMappingAdded != SUCCESS && portMappingAdded != ALREADY_MAPPED) {
     portMappingAdded = tinyUPnP.commitPortMappings();
     Serial.println("");
   
-    if (!portMappingAdded) {
+    if (portMappingAdded != SUCCESS && portMappingAdded != ALREADY_MAPPED) {
       // for debugging, you can see this in your router too under forwarding or UPnP
       tinyUPnP.printAllPortMappings();
       Serial.println(F("This was printed because adding the required port mapping failed"));
