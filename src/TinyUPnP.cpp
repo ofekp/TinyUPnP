@@ -560,12 +560,12 @@ void TinyUPnP::broadcastMSearch(bool isSsdpAll /*=false*/) {
         sprintf(integer_string, "%d", UPNP_SSDP_PORT);
         strcat_P(body_tmp, integer_string);
         strcat_P(body_tmp, PSTR("\r\n"));
-        strcat_P(body_tmp, PSTR("MAN: \"ssdp:discover\"\r\n"));
-        strcat_P(body_tmp, PSTR("MX: 2\r\n"));  // allowed number of seconds to wait before replying to this M_SEARCH
         strcat_P(body_tmp, PSTR("ST: "));
         strcat_P(body_tmp, deviceList[i]);
         strcat_P(body_tmp, PSTR("\r\n"));
-        strcat_P(body_tmp, PSTR("USER-AGENT: unix/5.1 UPnP/2.0 TinyUPnP/1.0\r\n"));
+        strcat_P(body_tmp, PSTR("MAN: \"ssdp:discover\"\r\n"));
+        strcat_P(body_tmp, PSTR("MX: 2\r\n\r\n"));  // allowed number of seconds to wait before replying to this M_SEARCH
+//         strcat_P(body_tmp, PSTR("USER-AGENT: unix/5.1 UPnP/2.0 TinyUPnP/1.0\r\n"));
         strcat_P(body_tmp, PSTR("\r\n"));
 
         debugPrintln(body_tmp);
@@ -583,6 +583,9 @@ void TinyUPnP::broadcastMSearch(bool isSsdpAll /*=false*/) {
         int endPacketRes = _udpClient.endPacket();
         debugPrint(F("endPacketRes ["));
         debugPrint(String(endPacketRes));
+        debugPrintln(F("]"));
+        debugPrint(F("(issue66) M_SEARCH sent for ["));
+        debugPrint(deviceList[i]);
         debugPrintln(F("]"));
     }
 
