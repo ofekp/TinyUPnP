@@ -584,6 +584,9 @@ void TinyUPnP::broadcastMSearch(bool isSsdpAll /*=false*/) {
         debugPrint(F("endPacketRes ["));
         debugPrint(String(endPacketRes));
         debugPrintln(F("]"));
+        debugPrint(F("(issue66) M_SEARCH sent for ["));
+        debugPrint(deviceList[i]);
+        debugPrintln(F("]"));
     }
 
     debugPrintln(F("M-SEARCH packets sent"));
