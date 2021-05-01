@@ -23,7 +23,7 @@ IPAddress ipMulti(239, 255, 255, 250);  // multicast address for SSDP
 IPAddress connectivityTestIp(64, 233, 187, 99);  // Google
 IPAddress ipNull(0, 0, 0, 0);  // indication to update rules when the IP of the device changes
 
-char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet UDP_TX_PACKET_MAX_SIZE=8192
+char packetBuffer[UPNP_UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet
 char responseBuffer[UDP_TX_RESPONSE_MAX_SIZE];
 
 char body_tmp[1200];
@@ -40,8 +40,8 @@ TinyUPnP::TinyUPnP(unsigned long timeoutMs = 20000) {
     _headRuleNode = NULL;
     clearGatewayInfo(&_gwInfo);
 
-    debugPrint(F("UDP_TX_PACKET_MAX_SIZE="));
-    debugPrintln(String(UDP_TX_PACKET_MAX_SIZE));
+    debugPrint(F("UPNP_UDP_TX_PACKET_MAX_SIZE="));
+    debugPrintln(String(UPNP_UDP_TX_PACKET_MAX_SIZE));
     debugPrint(F("UDP_TX_RESPONSE_MAX_SIZE="));
     debugPrintln(String(UDP_TX_RESPONSE_MAX_SIZE));
 }
@@ -723,8 +723,8 @@ ssdpDevice* TinyUPnP::waitForUnicastResponseToMSearch(IPAddress gatewayIP) {
   
     int idx = 0;
     while (idx < packetSize) {
-        memset(packetBuffer, 0, UDP_TX_PACKET_MAX_SIZE);
-        int len = _udpClient.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
+        memset(packetBuffer, 0, UPNP_UDP_TX_PACKET_MAX_SIZE);
+        int len = _udpClient.read(packetBuffer, UPNP_UDP_TX_PACKET_MAX_SIZE);
         if (len <= 0) {
             break;
         }

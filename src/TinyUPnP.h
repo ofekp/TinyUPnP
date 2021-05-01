@@ -38,7 +38,7 @@ static const char * const deviceListSsdpAll[] = {
 
 #define MAX_NUM_OF_UPDATES_WITH_NO_EFFECT 6  // after 6 tries of updatePortMappings we will execute the more extensive addPortMapping
 
-#define UDP_TX_PACKET_MAX_SIZE 1000  // reduce max UDP packet size to conserve memory (by default UDP_TX_PACKET_MAX_SIZE=8192)
+#define UPNP_UDP_TX_PACKET_MAX_SIZE 1000  // reduce max UDP packet size to conserve memory (by default UDP_TX_PACKET_MAX_SIZE=8192)
 #define UDP_TX_RESPONSE_MAX_SIZE 8192
 
 const String UPNP_SERVICE_TYPE_TAG_NAME = "serviceType";
