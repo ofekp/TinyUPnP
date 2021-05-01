@@ -50,12 +50,16 @@ TinyUPnP::~TinyUPnP() {
 }
 
 void TinyUPnP::addPortMappingConfig(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName) {
+	addPortMappingConfig(ruleIP, rulePort, rulePort, ruleProtocol, ruleLeaseDuration, ruleFriendlyName);
+}
+
+void TinyUPnP::addPortMappingConfig(IPAddress ruleIP, int ruleInternalPort, int ruleExternalPort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName) {
     static int index = 0;
     upnpRule *newUpnpRule = new upnpRule();
     newUpnpRule->index = index++;
     newUpnpRule->internalAddr = (ruleIP == WiFi.localIP()) ? ipNull : ruleIP;  // for automatic IP change handling
-    newUpnpRule->internalPort = rulePort;
-    newUpnpRule->externalPort = rulePort;
+    newUpnpRule->internalPort = ruleInternalPort;
+    newUpnpRule->externalPort = ruleExternalPort;
     newUpnpRule->leaseDuration = ruleLeaseDuration;
     newUpnpRule->protocol = ruleProtocol;
     newUpnpRule->devFriendlyName = ruleFriendlyName;
@@ -460,7 +464,7 @@ boolean TinyUPnP::applyActionOnSpecificPortMapping(SOAPAction *soapAction, gatew
     strcat_P(body_tmp, PSTR(" xmlns:u=\""));
     strcat_P(body_tmp, deviceInfo->serviceTypeName.c_str());
     strcat_P(body_tmp, PSTR("\">\r\n<NewRemoteHost></NewRemoteHost>\r\n<NewExternalPort>"));
-    sprintf(integer_string, "%d", rule_ptr->internalPort);
+    sprintf(integer_string, "%d", rule_ptr->externalPort);
     strcat_P(body_tmp, integer_string);
     strcat_P(body_tmp, PSTR("</NewExternalPort>\r\n<NewProtocol>"));
     strcat_P(body_tmp, rule_ptr->protocol.c_str());
@@ -964,7 +968,7 @@ boolean TinyUPnP::addPortMappingEntry(gatewayInfo *deviceInfo, upnpRule *rule_pt
     strcpy_P(body_tmp, PSTR("<?xml version=\"1.0\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:AddPortMapping xmlns:u=\""));
     strcat_P(body_tmp, deviceInfo->serviceTypeName.c_str());
     strcat_P(body_tmp, PSTR("\"><NewRemoteHost></NewRemoteHost><NewExternalPort>"));
-    sprintf(integer_string, "%d", rule_ptr->internalPort);
+    sprintf(integer_string, "%d", rule_ptr->externalPort);
     strcat_P(body_tmp, integer_string);
     strcat_P(body_tmp, PSTR("</NewExternalPort><NewProtocol>"));
     strcat_P(body_tmp, rule_ptr->protocol.c_str());
