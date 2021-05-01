@@ -12,7 +12,7 @@
 #include <WiFiClient.h>
 #include <limits.h>
 
-#define UPNP_DEBUG
+//#define UPNP_DEBUG // uncomment to enable debug and TinyUPnP::print<...>() outputs
 #define UPNP_SSDP_PORT 1900
 #define TCP_CONNECTION_TIMEOUT_MS 6000
 #define PORT_MAPPING_INVALID_INDEX "<errorDescription>SpecifiedArrayIndexInvalid</errorDescription>"
