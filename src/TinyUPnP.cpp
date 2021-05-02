@@ -222,6 +222,8 @@ boolean TinyUPnP::getGatewayInfo(gatewayInfo *deviceInfo, long startTime) {
     // the following is the default and may be overridden if URLBase tag is specified
     deviceInfo->actionPort = ssdpDevice_ptr->port;
 
+    delete ssdpDevice_ptr;
+
     // close the UDP connection
     _udpClient.stop();
 
@@ -621,12 +623,13 @@ ssdpDeviceNode* TinyUPnP::listSsdpDevices() {
     ssdpDeviceNode *ssdpDeviceNode_head = NULL;
     ssdpDeviceNode *ssdpDeviceNode_tail = NULL;
     ssdpDeviceNode *ssdpDeviceNode_ptr = NULL;
-    ssdpDevice *ssdpDevice_ptr;
+    ssdpDevice *ssdpDevice_ptr = NULL;
     while (true) {
         ssdpDevice_ptr = waitForUnicastResponseToMSearch(ipNull);  // NULL will cause finding all SSDP device (not just the IGD)
         if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
             debugPrintln(F("Timeout expired while waiting for the gateway router to respond to M-SEARCH message"));
             _udpClient.stop();
+            delete ssdpDevice_ptr;
             break;
         }
 
@@ -1048,6 +1051,15 @@ boolean TinyUPnP::printAllPortMappings() {
     
     upnpRuleNode *ruleNodeHead_ptr = NULL;
     upnpRuleNode *ruleNodeTail_ptr = NULL;
+    auto cleanup_rule_nodes_fn = [&ruleNodeHead_ptr] () {
+        upnpRuleNode *curr_ptr = ruleNodeHead_ptr;
+        while (curr_ptr != NULL) {
+            upnpRuleNode *del_prt = curr_ptr;
+            curr_ptr = curr_ptr->next;
+            delete del_prt->upnpRule;
+            delete del_prt;
+        }
+    };
 
     unsigned long startTime = millis();
     boolean reachedEnd = false;
@@ -1060,6 +1072,7 @@ boolean TinyUPnP::printAllPortMappings() {
                 if (millis() > timeout) {
                     debugPrint(F("Timeout expired while trying to connect to the IGD"));
                     _wifiClient.stop();
+                    cleanup_rule_nodes_fn();
                     return false;
                 }
                 delay(1000);
@@ -1109,6 +1122,7 @@ boolean TinyUPnP::printAllPortMappings() {
             if (millis() > timeout) {
                 debugPrintln(F("TCP connection timeout while retrieving port mappings"));
                 _wifiClient.stop();
+                cleanup_rule_nodes_fn();
                 return false;
             }
         }
@@ -1130,6 +1144,7 @@ boolean TinyUPnP::printAllPortMappings() {
                 rule_ptr->devFriendlyName = getTagContent(line, "NewPortMappingDescription");
                 String newInternalClient = getTagContent(line, "NewInternalClient");
                 if (newInternalClient == "") {
+                    delete rule_ptr;
                     continue;
                 }
                 rule_ptr->internalAddr.fromString(newInternalClient);
