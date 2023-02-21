@@ -685,6 +685,9 @@ ssdpDeviceNode* TinyUPnP::listSsdpDevices() {
 // Note: the response from the IGD is sent back as unicast to this device
 // Note: only gateway defined IGD response will be considered, the rest will be ignored
 ssdpDevice* TinyUPnP::waitForUnicastResponseToMSearch(IPAddress gatewayIP) {
+    // Flush the UDP buffer since otherwise anyone who responded first will be the only one we see
+    // and we will not see the response from the gateway router
+    _udpClient.flush();
     int packetSize = _udpClient.parsePacket();
 
     // only continue if a packet is available
