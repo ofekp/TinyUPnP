@@ -702,7 +702,7 @@ ssdpDevice* TinyUPnP::waitForUnicastResponseToMSearch(IPAddress gatewayIP) {
         debugPrint(F("Discarded packet not originating from IGD - gatewayIP ["));
         debugPrint(gatewayIP.toString());
         debugPrint(F("] remoteIP ["));
-        debugPrint(ipMulti.toString());
+        debugPrint(remoteIP.toString());
         debugPrintln(F("]"));
         return NULL;
     }
