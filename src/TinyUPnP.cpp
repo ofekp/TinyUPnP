@@ -24,7 +24,7 @@ IPAddress connectivityTestIp(64, 233, 187, 99);  // Google
 IPAddress ipNull(0, 0, 0, 0);  // indication to update rules when the IP of the device changes
 
 char packetBuffer[UPNP_UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet
-char responseBuffer[UDP_TX_RESPONSE_MAX_SIZE];
+char responseBuffer[UPNP_UDP_TX_RESPONSE_MAX_SIZE];
 
 char body_tmp[1200];
 char integer_string[32];
@@ -42,8 +42,8 @@ TinyUPnP::TinyUPnP(unsigned long timeoutMs = 20000) {
 
     debugPrint(F("UPNP_UDP_TX_PACKET_MAX_SIZE="));
     debugPrintln(String(UPNP_UDP_TX_PACKET_MAX_SIZE));
-    debugPrint(F("UDP_TX_RESPONSE_MAX_SIZE="));
-    debugPrintln(String(UDP_TX_RESPONSE_MAX_SIZE));
+    debugPrint(F("UPNP_UDP_TX_RESPONSE_MAX_SIZE="));
+    debugPrintln(String(UPNP_UDP_TX_RESPONSE_MAX_SIZE));
 }
 
 TinyUPnP::~TinyUPnP() {
@@ -722,7 +722,7 @@ ssdpDevice* TinyUPnP::waitForUnicastResponseToMSearch(IPAddress gatewayIP) {
     debugPrintln(F("]"));
 
     // sanity check
-    if (packetSize > UDP_TX_RESPONSE_MAX_SIZE) {
+    if (packetSize > UPNP_UDP_TX_RESPONSE_MAX_SIZE) {
         debugPrint(F("Received packet with size larged than the response buffer, cannot proceed."));
         return NULL;
     }
