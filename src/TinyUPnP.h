@@ -112,10 +112,7 @@ typedef struct _ssdpDeviceNode {
 } ssdpDeviceNode;
 
 enum portMappingResult {
-    NOT_YET_ATTEMPTED, // Do not have your default value be the one you're checking for. 
-    // I have no clue why this was working for the examples.
-    // I wasn't even aware that this was an issue until I added my own enum, and the checks
-    // just started failing.
+    UNKNOWN,
     SUCCESS,  // port mapping was added
     ALREADY_MAPPED,  // the port mapping is already found in the IGD
     EMPTY_PORT_MAPPING_CONFIG,
