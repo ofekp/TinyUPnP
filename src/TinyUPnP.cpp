@@ -23,8 +23,8 @@ IPAddress ipMulti(239, 255, 255, 250);  // multicast address for SSDP
 IPAddress connectivityTestIp(64, 233, 187, 99);  // Google
 IPAddress ipNull(0, 0, 0, 0);  // indication to update rules when the IP of the device changes
 
-char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet UDP_TX_PACKET_MAX_SIZE=8192
-char responseBuffer[UDP_TX_RESPONSE_MAX_SIZE];
+char packetBuffer[UPNP_UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet
+char responseBuffer[UPNP_UDP_TX_RESPONSE_MAX_SIZE];
 
 char body_tmp[1200];
 char integer_string[32];
@@ -40,22 +40,26 @@ TinyUPnP::TinyUPnP(unsigned long timeoutMs = 20000) {
     _headRuleNode = NULL;
     clearGatewayInfo(&_gwInfo);
 
-    debugPrint(F("UDP_TX_PACKET_MAX_SIZE="));
-    debugPrintln(String(UDP_TX_PACKET_MAX_SIZE));
-    debugPrint(F("UDP_TX_RESPONSE_MAX_SIZE="));
-    debugPrintln(String(UDP_TX_RESPONSE_MAX_SIZE));
+    debugPrint(F("UPNP_UDP_TX_PACKET_MAX_SIZE="));
+    debugPrintln(String(UPNP_UDP_TX_PACKET_MAX_SIZE));
+    debugPrint(F("UPNP_UDP_TX_RESPONSE_MAX_SIZE="));
+    debugPrintln(String(UPNP_UDP_TX_RESPONSE_MAX_SIZE));
 }
 
 TinyUPnP::~TinyUPnP() {
 }
 
 void TinyUPnP::addPortMappingConfig(IPAddress ruleIP, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName) {
+	addPortMappingConfig(ruleIP, rulePort, rulePort, ruleProtocol, ruleLeaseDuration, ruleFriendlyName);
+}
+
+void TinyUPnP::addPortMappingConfig(IPAddress ruleIP, int ruleInternalPort, int ruleExternalPort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName) {
     static int index = 0;
     upnpRule *newUpnpRule = new upnpRule();
     newUpnpRule->index = index++;
     newUpnpRule->internalAddr = (ruleIP == WiFi.localIP()) ? ipNull : ruleIP;  // for automatic IP change handling
-    newUpnpRule->internalPort = rulePort;
-    newUpnpRule->externalPort = rulePort;
+    newUpnpRule->internalPort = ruleInternalPort;
+    newUpnpRule->externalPort = ruleExternalPort;
     newUpnpRule->leaseDuration = ruleLeaseDuration;
     newUpnpRule->protocol = ruleProtocol;
     newUpnpRule->devFriendlyName = ruleFriendlyName;
@@ -217,6 +221,8 @@ boolean TinyUPnP::getGatewayInfo(gatewayInfo *deviceInfo, long startTime) {
     deviceInfo->path = ssdpDevice_ptr->path;
     // the following is the default and may be overridden if URLBase tag is specified
     deviceInfo->actionPort = ssdpDevice_ptr->port;
+
+    delete ssdpDevice_ptr;
 
     // close the UDP connection
     _udpClient.stop();
@@ -460,7 +466,7 @@ boolean TinyUPnP::applyActionOnSpecificPortMapping(SOAPAction *soapAction, gatew
     strcat_P(body_tmp, PSTR(" xmlns:u=\""));
     strcat_P(body_tmp, deviceInfo->serviceTypeName.c_str());
     strcat_P(body_tmp, PSTR("\">\r\n<NewRemoteHost></NewRemoteHost>\r\n<NewExternalPort>"));
-    sprintf(integer_string, "%d", rule_ptr->internalPort);
+    sprintf(integer_string, "%d", rule_ptr->externalPort);
     strcat_P(body_tmp, integer_string);
     strcat_P(body_tmp, PSTR("</NewExternalPort>\r\n<NewProtocol>"));
     strcat_P(body_tmp, rule_ptr->protocol.c_str());
@@ -617,12 +623,13 @@ ssdpDeviceNode* TinyUPnP::listSsdpDevices() {
     ssdpDeviceNode *ssdpDeviceNode_head = NULL;
     ssdpDeviceNode *ssdpDeviceNode_tail = NULL;
     ssdpDeviceNode *ssdpDeviceNode_ptr = NULL;
-    ssdpDevice *ssdpDevice_ptr;
+    ssdpDevice *ssdpDevice_ptr = NULL;
     while (true) {
         ssdpDevice_ptr = waitForUnicastResponseToMSearch(ipNull);  // NULL will cause finding all SSDP device (not just the IGD)
         if (_timeoutMs > 0 && (millis() - startTime > _timeoutMs)) {
             debugPrintln(F("Timeout expired while waiting for the gateway router to respond to M-SEARCH message"));
             _udpClient.stop();
+            delete ssdpDevice_ptr;
             break;
         }
 
@@ -678,6 +685,9 @@ ssdpDeviceNode* TinyUPnP::listSsdpDevices() {
 // Note: the response from the IGD is sent back as unicast to this device
 // Note: only gateway defined IGD response will be considered, the rest will be ignored
 ssdpDevice* TinyUPnP::waitForUnicastResponseToMSearch(IPAddress gatewayIP) {
+    // Flush the UDP buffer since otherwise anyone who responded first will be the only one we see
+    // and we will not see the response from the gateway router
+    _udpClient.flush();
     int packetSize = _udpClient.parsePacket();
 
     // only continue if a packet is available
@@ -692,7 +702,7 @@ ssdpDevice* TinyUPnP::waitForUnicastResponseToMSearch(IPAddress gatewayIP) {
         debugPrint(F("Discarded packet not originating from IGD - gatewayIP ["));
         debugPrint(gatewayIP.toString());
         debugPrint(F("] remoteIP ["));
-        debugPrint(ipMulti.toString());
+        debugPrint(remoteIP.toString());
         debugPrintln(F("]"));
         return NULL;
     }
@@ -712,15 +722,15 @@ ssdpDevice* TinyUPnP::waitForUnicastResponseToMSearch(IPAddress gatewayIP) {
     debugPrintln(F("]"));
 
     // sanity check
-    if (packetSize > UDP_TX_RESPONSE_MAX_SIZE) {
+    if (packetSize > UPNP_UDP_TX_RESPONSE_MAX_SIZE) {
         debugPrint(F("Received packet with size larged than the response buffer, cannot proceed."));
         return NULL;
     }
   
     int idx = 0;
     while (idx < packetSize) {
-        memset(packetBuffer, 0, UDP_TX_PACKET_MAX_SIZE);
-        int len = _udpClient.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
+        memset(packetBuffer, 0, UPNP_UDP_TX_PACKET_MAX_SIZE);
+        int len = _udpClient.read(packetBuffer, UPNP_UDP_TX_PACKET_MAX_SIZE);
         if (len <= 0) {
             break;
         }
@@ -964,7 +974,7 @@ boolean TinyUPnP::addPortMappingEntry(gatewayInfo *deviceInfo, upnpRule *rule_pt
     strcpy_P(body_tmp, PSTR("<?xml version=\"1.0\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:AddPortMapping xmlns:u=\""));
     strcat_P(body_tmp, deviceInfo->serviceTypeName.c_str());
     strcat_P(body_tmp, PSTR("\"><NewRemoteHost></NewRemoteHost><NewExternalPort>"));
-    sprintf(integer_string, "%d", rule_ptr->internalPort);
+    sprintf(integer_string, "%d", rule_ptr->externalPort);
     strcat_P(body_tmp, integer_string);
     strcat_P(body_tmp, PSTR("</NewExternalPort><NewProtocol>"));
     strcat_P(body_tmp, rule_ptr->protocol.c_str());
@@ -1044,6 +1054,15 @@ boolean TinyUPnP::printAllPortMappings() {
     
     upnpRuleNode *ruleNodeHead_ptr = NULL;
     upnpRuleNode *ruleNodeTail_ptr = NULL;
+    auto cleanup_rule_nodes_fn = [&ruleNodeHead_ptr] () {
+        upnpRuleNode *curr_ptr = ruleNodeHead_ptr;
+        while (curr_ptr != NULL) {
+            upnpRuleNode *del_prt = curr_ptr;
+            curr_ptr = curr_ptr->next;
+            delete del_prt->upnpRule;
+            delete del_prt;
+        }
+    };
 
     unsigned long startTime = millis();
     boolean reachedEnd = false;
@@ -1056,6 +1075,7 @@ boolean TinyUPnP::printAllPortMappings() {
                 if (millis() > timeout) {
                     debugPrint(F("Timeout expired while trying to connect to the IGD"));
                     _wifiClient.stop();
+                    cleanup_rule_nodes_fn();
                     return false;
                 }
                 delay(1000);
@@ -1105,6 +1125,7 @@ boolean TinyUPnP::printAllPortMappings() {
             if (millis() > timeout) {
                 debugPrintln(F("TCP connection timeout while retrieving port mappings"));
                 _wifiClient.stop();
+                cleanup_rule_nodes_fn();
                 return false;
             }
         }
@@ -1126,6 +1147,7 @@ boolean TinyUPnP::printAllPortMappings() {
                 rule_ptr->devFriendlyName = getTagContent(line, "NewPortMappingDescription");
                 String newInternalClient = getTagContent(line, "NewInternalClient");
                 if (newInternalClient == "") {
+                    delete rule_ptr;
                     continue;
                 }
                 rule_ptr->internalAddr.fromString(newInternalClient);

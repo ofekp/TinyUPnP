@@ -12,7 +12,7 @@
 #include <WiFiClient.h>
 #include <limits.h>
 
-#define UPNP_DEBUG
+//#define UPNP_DEBUG // uncomment to enable debug and TinyUPnP::print<...>() outputs
 #define UPNP_SSDP_PORT 1900
 #define TCP_CONNECTION_TIMEOUT_MS 6000
 #define PORT_MAPPING_INVALID_INDEX "<errorDescription>SpecifiedArrayIndexInvalid</errorDescription>"
@@ -38,8 +38,8 @@ static const char * const deviceListSsdpAll[] = {
 
 #define MAX_NUM_OF_UPDATES_WITH_NO_EFFECT 6  // after 6 tries of updatePortMappings we will execute the more extensive addPortMapping
 
-#define UDP_TX_PACKET_MAX_SIZE 1000  // reduce max UDP packet size to conserve memory (by default UDP_TX_PACKET_MAX_SIZE=8192)
-#define UDP_TX_RESPONSE_MAX_SIZE 8192
+#define UPNP_UDP_TX_PACKET_MAX_SIZE 1000  // reduce max UDP packet size to conserve memory (by default UDP_TX_PACKET_MAX_SIZE=8192)
+#define UPNP_UDP_TX_RESPONSE_MAX_SIZE 8192
 
 const String UPNP_SERVICE_TYPE_TAG_NAME = "serviceType";
 const String UPNP_SERVICE_TYPE_TAG_START = "<serviceType>";
@@ -112,6 +112,7 @@ typedef struct _ssdpDeviceNode {
 } ssdpDeviceNode;
 
 enum portMappingResult {
+    UNKNOWN,
     SUCCESS,  // port mapping was added
     ALREADY_MAPPED,  // the port mapping is already found in the IGD
     EMPTY_PORT_MAPPING_CONFIG,
@@ -129,6 +130,7 @@ class TinyUPnP
         // when the ruleIP is set to the current device IP, the IP of the rule will change if the device changes its IP
         // this makes sure the traffic will be directed to the device even if the IP chnages
         void addPortMappingConfig(IPAddress ruleIP /* can be NULL */, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName);
+        void addPortMappingConfig(IPAddress ruleIP /* can be NULL */, int ruleInternalPort, int ruleExternalPort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName);
         portMappingResult commitPortMappings();
         portMappingResult updatePortMappings(unsigned long intervalMs, callback_function fallback = NULL /* optional */);
         boolean printAllPortMappings();
