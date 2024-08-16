@@ -537,7 +537,7 @@ boolean TinyUPnP::connectUDP() {
 }
 
 // broadcast an M-SEARCH message to initiate messages from SSDP devices
-// the router should respond to this message by a packet sent to this device's unicast addresss on the
+// the router should respond to this message by a packet sent to this device's unicast address on the
 // same UPnP port (1900)
 void TinyUPnP::broadcastMSearch(bool isSsdpAll /*=false*/) {
     debugPrint(F("Sending M-SEARCH to ["));
@@ -555,12 +555,12 @@ void TinyUPnP::broadcastMSearch(bool isSsdpAll /*=false*/) {
     debugPrintln(F("]"));
 #endif
 
-    const char * const * deviceList = deviceListUpnp;
+    const char * const * serviceList = serviceListUpnp;
     if (isSsdpAll) {
-        deviceList = deviceListSsdpAll;
+        serviceList = serviceListSsdpAll;
     }
 
-    for (int i = 0; deviceList[i]; i++) {
+    for (int i = 0; serviceList[i]; i++) {
         strcpy_P(body_tmp, PSTR("M-SEARCH * HTTP/1.1\r\n"));
         strcat_P(body_tmp, PSTR("HOST: 239.255.255.250:"));
         sprintf(integer_string, "%d", UPNP_SSDP_PORT);
@@ -569,7 +569,7 @@ void TinyUPnP::broadcastMSearch(bool isSsdpAll /*=false*/) {
         strcat_P(body_tmp, PSTR("MAN: \"ssdp:discover\"\r\n"));
         strcat_P(body_tmp, PSTR("MX: 2\r\n"));  // allowed number of seconds to wait before replying to this M_SEARCH
         strcat_P(body_tmp, PSTR("ST: "));
-        strcat_P(body_tmp, deviceList[i]);
+        strcat_P(body_tmp, serviceList[i]);
         strcat_P(body_tmp, PSTR("\r\n"));
         strcat_P(body_tmp, PSTR("USER-AGENT: unix/5.1 UPnP/2.0 TinyUPnP/1.0\r\n"));
         strcat_P(body_tmp, PSTR("\r\n"));
@@ -723,7 +723,7 @@ ssdpDevice* TinyUPnP::waitForUnicastResponseToMSearch(IPAddress gatewayIP) {
 
     // sanity check
     if (packetSize > UPNP_UDP_TX_RESPONSE_MAX_SIZE) {
-        debugPrint(F("Received packet with size larged than the response buffer, cannot proceed."));
+        debugPrint(F("Received packet with size larger than the response buffer, cannot proceed."));
         return NULL;
     }
   
@@ -747,20 +747,20 @@ ssdpDevice* TinyUPnP::waitForUnicastResponseToMSearch(IPAddress gatewayIP) {
     debugPrintln(F("Gateway packet content:"));
     debugPrintln(responseBuffer);
 
-    const char * const * deviceList = deviceListUpnp;
+    const char * const * serviceList = serviceListUpnp;
     if (gatewayIP == ipNull) {
-        deviceList = deviceListSsdpAll;
+        serviceList = serviceListSsdpAll;
     }
 
     // only continue if the packet is a response to M-SEARCH and it originated from a gateway device
     // for SSDP discovery we continue anyway
     if (gatewayIP != ipNull) {  // for the use of listSsdpDevices
         boolean foundIGD = false;
-        for (int i = 0; deviceList[i]; i++) {
-            if (strstr(responseBuffer, deviceList[i]) != NULL) {
+        for (int i = 0; serviceList[i]; i++) {
+            if (strstr(responseBuffer, serviceList[i]) != NULL) {
                 foundIGD = true;
                 debugPrint(F("IGD of type ["));
-                debugPrint(deviceList[i]);
+                debugPrint(serviceList[i]);
                 debugPrintln(F("] found"));
                 break;
             }
@@ -897,8 +897,8 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
         // to support multiple <serviceType> tags
         int service_type_index_start = 0;
         
-        for (int i = 0; deviceListUpnp[i]; i++) {
-            int service_type_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + deviceListUpnp[i]);
+        for (int i = 0; serviceListUpnp[i]; i++) {
+            int service_type_index = line.indexOf(UPNP_SERVICE_TYPE_TAG_START + serviceListUpnp[i]);
             if (service_type_index >= 0) {
                 debugPrint(F("["));
                 debugPrint(deviceInfo->serviceTypeName);
@@ -915,7 +915,7 @@ boolean TinyUPnP::getIGDEventURLs(gatewayInfo *deviceInfo) {
                 debugPrint(F("["));
                 debugPrint(deviceInfo->serviceTypeName);
                 debugPrint(F("] service found! deviceType ["));
-                debugPrint(deviceListUpnp[i]);
+                debugPrint(serviceListUpnp[i]);
                 debugPrintln(F("]"));
                 break;  // will start looking for 'controlURL' now
             }

@@ -15,10 +15,10 @@ const char* ssid = "<FILL THIS!>";
 const char* password = "<FILL THIS!>";
 #define LISTEN_PORT <FILL THIS!>  // http://<IP>:<LISTEN_PORT>/?name=<your string>
 #define LEASE_DURATION 36000  // seconds
-#define FRIENDLY_NAME "<FILL THIS!>"  // this name will appear in your router port forwarding section
-#define DDNS_USERNAME "<FILL THIS!>"
-#define DDNS_PASSWORD "<FILL THIS!>"
-#define DDNS_DOMAIN "<FILL THIS!>"
+#define FRIENDLY_NAME "<FILL THIS!>"  // this name will appear in your router's port forwarding section
+// #define DDNS_USERNAME "<FILL THIS!>"
+// #define DDNS_PASSWORD "<FILL THIS!>"
+// #define DDNS_DOMAIN "<FILL THIS!>"
 
 TinyUPnP tinyUPnP(20000);  // -1 means blocking, preferably, use a timeout value (ms)
 WebServer server(LISTEN_PORT);
@@ -130,8 +130,8 @@ void setup(void) {
   Serial.println("UPnP done");
   
   // DDNS
-  EasyDDNS.service("dynu");
-  EasyDDNS.client(DDNS_DOMAIN, DDNS_USERNAME, DDNS_PASSWORD);
+  // EasyDDNS.service("dynu");
+  // EasyDDNS.client(DDNS_DOMAIN, DDNS_USERNAME, DDNS_PASSWORD);
 
   // server
   if (!MDNS.begin("esp32")) {
@@ -185,7 +185,7 @@ void setup(void) {
 void loop(void) {
   delay(5);
 	
-  EasyDDNS.update(300000);  // check for New IP
+  // EasyDDNS.update(300000);  // check for New IP
     
   tinyUPnP.updatePortMappings(600000, &connectWiFi);  // 10 minutes
   
