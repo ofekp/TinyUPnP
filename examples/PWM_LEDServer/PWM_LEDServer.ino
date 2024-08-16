@@ -18,7 +18,7 @@ const char* ssid = "<FILL THIS!>";
 const char* password = "<FILL THIS!>";
 #define LISTEN_PORT <FILL THIS!>  // http://<IP or DDNS>:<LISTEN_PORT>/?percentage=<0..100>
 #define LEASE_DURATION 36000  // seconds
-#define FRIENDLY_NAME "<FILL THIS!>"  // this name will appear in your router port forwarding section
+#define FRIENDLY_NAME "<FILL THIS!>"  // this name will appear in your router's port forwarding section
 #define DDNS_USERNAME "<FILL THIS!>"
 #define DDNS_PASSWORD "<FILL THIS!>"
 #define DDNS_DOMAIN "<FILL THIS!>"

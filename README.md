@@ -1,21 +1,30 @@
 # TinyUPnP
-A very small UPnP IGD implementation for ESP8266 or ESP32.
+A very small UPnP IGD implementation for ESP8266 and ESP32.
 
-Installation
-=
-Just clone or download as zip, then simply copy the folder TinyUPnP to the Arduino IDE "libraries" folder e.g "D:\arduino-1.8.9\libraries".
+# Installation
 
-Usage and More Information
-=
+**TinyUPnP**
 
-**Dependecies**
+Simply clone or download as zip, then copy the folder TinyUPnP to your Arduino IDE "libraries" folder e.g "D:\Arduino\libraries".
+If you are still unable to include the package, go to Arduino IDE preferences and make sure that sketchbook location points to the correct Arduino directory.
+
+**Prerequisites**
 
 Boards:
 * ESP8266 - Follow https://randomnerdtutorials.com/how-to-install-esp8266-board-arduino-ide/
-* ESP32 - Follow https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/
+* ESP32 - Arduino IDE -> Board Manager -> search for "esp32" -> install esp32 by Espressif Systems (or by Arduino, according to your board version). For older Arduino IDE versions you can follow https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/
 
-Libraries (Arduino IDE -> Sketch -> Include Library -> Manage Libraries):
-* EasyDDNS - For telling your DDNS server what the IP of your Gateway Router is (optional).
+USB to UART Bridge Drivers:
+* If you connect the ESP32 to your computer and it is not recognized in the Arduino IDE (i.e. it does not appear in Tools -> Port) you might need to install the drivers **CP210x USB to UART Bridge VCP** from https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers?tab=downloads
+After extracting the ZIP file, updated the driver (on Win using the device manager), install it by picking the extracted directory manually.
+
+Other Libraries:
+* EasyDDNS (optional) - Used to tell your DDNS server what the IP of your Gateway Router is. To install:
+  Arduino IDE -> Sketch -> Include Library -> Manage Libraries -> search for "EasyDDNS" -> Install.
+
+# Usage
+
+**Please refer to the examples bundled with the TinyUPnP library.**
 
 **Include**
 ```
@@ -59,18 +68,15 @@ tinyUPnP->printAllPortMappings();
 
 You can turn off debug prints by setting `UPNP_DEBUG` to `false` in [TinyUPnP.h#L16](https://github.com/ofekp/TinyUPnP/blob/master/src/TinyUPnP.h#L15)
 
-Issues
-=
+# Issues
 When reporting issues, attach full log (i.e `UPNP_DEBUG` is set to `true`) and add the serial output to the issue as a text file attachment.
 
-Donation
-=
+# Donation
 [![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif)](https://www.paypal.me/ofekpearl/1usd) If you like what I got, you can consider donating here, you can change the amount as you like.
 
 :star: If not, starring this project will go a long way to help me too!
 
-For anyone interested in how the library works
-=
+# For anyone interested in how the library works
 1. It sends an M_SEARCH message to UPnP UDP multicast address.
 2. The gateway router will respond with a message including an HTTP header called Location.
 3. `Location` is a link to an XML file containing the IGD (Internet Gateway Device) API in order to create the needed calls which will add the new port mapping to your gateway router.
@@ -107,18 +113,15 @@ I hope this helps.
 Referenced from my answer here:
 https://stackoverflow.com/a/46267791/4295037
 
-Detailed Document Released by UPnP Forum
-=
+# Detailed Document Released by UPnP Forum
 http://upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v2.0.pdf
 
-DDNS
-=
+# DDNS
 You will also need a DDNS update service
 I use this https://github.com/ayushsharma82/EasyDDNS
 You can also see its usage in my example code [PWM_LEDServer.ino](https://github.com/ofekp/TinyUPnP/blob/master/examples/PWM_LEDServer/PWM_LEDServer.ino)
 
-Special thanks
-=
+# Special thanks
 [@ajwtech](https://github.com/ajwtech) - for contributing to the package by noting the need to use `constrolURL` instead of `eventSubURL`
 
 [@Lan-Hekary](https://github.com/Lan-Hekary) - for improving the API

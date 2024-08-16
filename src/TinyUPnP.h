@@ -12,15 +12,15 @@
 #include <WiFiClient.h>
 #include <limits.h>
 
-//#define UPNP_DEBUG // uncomment to enable debug and TinyUPnP::print<...>() outputs
+//#define UPNP_DEBUG  // uncomment to enable debug and TinyUPnP::print<...>() outputs
 #define UPNP_SSDP_PORT 1900
 #define TCP_CONNECTION_TIMEOUT_MS 6000
 #define PORT_MAPPING_INVALID_INDEX "<errorDescription>SpecifiedArrayIndexInvalid</errorDescription>"
 #define PORT_MAPPING_INVALID_ACTION "<errorDescription>Invalid Action</errorDescription>"
 
-static const char * const deviceListUpnp[] = {
-    "urn:schemas-upnp-org:device:InternetGatewayDevice:1",
-    "urn:schemas-upnp-org:device:InternetGatewayDevice:2",
+static const char * const serviceListUpnp[] = {
+    "urn:schemas-upnp-org:service:InternetGatewayDevice:1",
+    "urn:schemas-upnp-org:service:InternetGatewayDevice:2",
     "urn:schemas-upnp-org:service:WANIPConnection:1",
     "urn:schemas-upnp-org:service:WANIPConnection:2",
     "urn:schemas-upnp-org:service:WANPPPConnection:1",
@@ -28,7 +28,7 @@ static const char * const deviceListUpnp[] = {
     0
 };
 
-static const char * const deviceListSsdpAll[] = {
+static const char * const serviceListSsdpAll[] = {
     "ssdp:all",
     0
 };
