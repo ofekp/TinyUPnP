@@ -20,7 +20,7 @@
 #endif
 
 IPAddress ipMulti(239, 255, 255, 250);  // multicast address for SSDP
-IPAddress connectivityTestIp(64, 233, 187, 99);  // Google
+IPAddress connectivityTestIp(1, 1, 1, 1);  // Cloudflare public DNS, also serves HTTP on port 80
 IPAddress ipNull(0, 0, 0, 0);  // indication to update rules when the IP of the device changes
 
 char packetBuffer[UPNP_UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet
@@ -88,8 +88,8 @@ portMappingResult TinyUPnP::commitPortMappings() {
 
     unsigned long startTime = millis();
 
-    // verify WiFi is connected
-    if (!testConnectivity(startTime)) {
+    // verify WiFi is connected, internet access is not required to add port mappings
+    if (!testRouterConnectivity(startTime)) {
         debugPrintln(F("ERROR: not connected to WiFi, cannot continue"));
         return NETWORK_ERROR;
     }
@@ -333,7 +333,8 @@ portMappingResult TinyUPnP::updatePortMappings(unsigned long intervalMs, callbac
     return NOP;  // no need to check yet
 }
 
-boolean TinyUPnP::testConnectivity(unsigned long startTime) {
+// verifies WiFi is connected and a gateway is known, internet access is not required
+boolean TinyUPnP::testRouterConnectivity(unsigned long startTime) {
     debugPrint(F("Testing WiFi connection for ["));
     debugPrint(WiFi.localIP().toString());
     debugPrint("]");
@@ -348,14 +349,30 @@ boolean TinyUPnP::testConnectivity(unsigned long startTime) {
     }
     debugPrintln(F(" ==> GOOD"));  // \n
 
+    debugPrint(F("Testing gateway ["));
+    debugPrint(WiFi.gatewayIP().toString());
+    debugPrint(F("]"));
+    if (WiFi.gatewayIP() == ipNull) {
+        debugPrintln(F(" ==> BAD"));
+        return false;
+    }
+
+    debugPrintln(F(" ==> GOOD"));
+    return true;
+}
+
+// verifies WiFi is connected and the internet is reachable
+boolean TinyUPnP::testInternetConnectivity(unsigned long startTime) {
+    if (!testRouterConnectivity(startTime)) {
+        return false;
+    }
+
     debugPrint(F("Testing internet connection"));
-    _wifiClient.connect(connectivityTestIp, 80);
-    while (!_wifiClient.connected()) {
-        if (startTime + TCP_CONNECTION_TIMEOUT_MS > millis()) {
-            debugPrintln(F(" ==> BAD"));
-            _wifiClient.stop();
-            return false;
-        }
+    // connect() blocks until it either connects or times out
+    if (!_wifiClient.connect(connectivityTestIp, 80)) {
+        debugPrintln(F(" ==> BAD"));
+        _wifiClient.stop();
+        return false;
     }
 
     debugPrintln(F(" ==> GOOD"));

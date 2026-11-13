@@ -99,7 +99,14 @@ void setup(void) {
   }
   
   Serial.println("UPnP done");
-  
+
+  // the port mapping only needs the router, check the internet too so the server is reachable from outside
+  if (tinyUPnP.testInternetConnectivity()) {
+    Serial.println(F("Internet connection is available"));
+  } else {
+    Serial.println(F("WARNING: no internet connection, the server will only be reachable from the local network"));
+  }
+
   // server
   if (MDNS.begin("esp8266")) {
     Serial.println(F("MDNS responder started"));
