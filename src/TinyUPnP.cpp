@@ -667,8 +667,8 @@ ssdpDeviceNode* TinyUPnP::listSsdpDevices() {
                 && ssdpDeviceNodeCurr_ptr->ssdpDevice->path == ssdpDeviceNode_ptr->ssdpDevice->path) {
                 // delete ssdpDeviceNode from the list
                 ssdpDeviceNodePrev_ptr->next = ssdpDeviceNodeCurr_ptr->next;
-                free(ssdpDeviceNodeCurr_ptr->ssdpDevice);
-                free(ssdpDeviceNodeCurr_ptr);
+                delete ssdpDeviceNodeCurr_ptr->ssdpDevice;
+                delete ssdpDeviceNodeCurr_ptr;
                 ssdpDeviceNodeCurr_ptr = ssdpDeviceNodePrev_ptr->next;
             } else {
                 ssdpDeviceNodePrev_ptr = ssdpDeviceNodeCurr_ptr;
