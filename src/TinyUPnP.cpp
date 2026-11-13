@@ -20,7 +20,6 @@
 #endif
 
 IPAddress ipMulti(239, 255, 255, 250);  // multicast address for SSDP
-IPAddress connectivityTestIp(64, 233, 187, 99);  // Google
 IPAddress ipNull(0, 0, 0, 0);  // indication to update rules when the IP of the device changes
 
 char packetBuffer[UPNP_UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet
@@ -348,18 +347,16 @@ boolean TinyUPnP::testConnectivity(unsigned long startTime) {
     }
     debugPrintln(F(" ==> GOOD"));  // \n
 
-    debugPrint(F("Testing internet connection"));
-    _wifiClient.connect(connectivityTestIp, 80);
-    while (!_wifiClient.connected()) {
-        if (startTime + TCP_CONNECTION_TIMEOUT_MS > millis()) {
-            debugPrintln(F(" ==> BAD"));
-            _wifiClient.stop();
-            return false;
-        }
+    // UPnP only talks to the local gateway, so internet access is not required
+    debugPrint(F("Testing gateway ["));
+    debugPrint(WiFi.gatewayIP().toString());
+    debugPrint(F("]"));
+    if (WiFi.gatewayIP() == ipNull) {
+        debugPrintln(F(" ==> BAD"));
+        return false;
     }
 
     debugPrintln(F(" ==> GOOD"));
-    _wifiClient.stop();
     return true;
 }
 
