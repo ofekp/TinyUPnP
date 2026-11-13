@@ -89,7 +89,7 @@ portMappingResult TinyUPnP::commitPortMappings() {
     unsigned long startTime = millis();
 
     // verify WiFi is connected, internet access is not required to add port mappings
-    if (!testLocalConnectivity(startTime)) {
+    if (!testRouterConnectivity(startTime)) {
         debugPrintln(F("ERROR: not connected to WiFi, cannot continue"));
         return NETWORK_ERROR;
     }
@@ -334,7 +334,7 @@ portMappingResult TinyUPnP::updatePortMappings(unsigned long intervalMs, callbac
 }
 
 // verifies WiFi is connected and a gateway is known, internet access is not required
-boolean TinyUPnP::testLocalConnectivity(unsigned long startTime) {
+boolean TinyUPnP::testRouterConnectivity(unsigned long startTime) {
     debugPrint(F("Testing WiFi connection for ["));
     debugPrint(WiFi.localIP().toString());
     debugPrint("]");
@@ -362,8 +362,8 @@ boolean TinyUPnP::testLocalConnectivity(unsigned long startTime) {
 }
 
 // verifies WiFi is connected and the internet is reachable
-boolean TinyUPnP::testConnectivity(unsigned long startTime) {
-    if (!testLocalConnectivity(startTime)) {
+boolean TinyUPnP::testInternetConnectivity(unsigned long startTime) {
+    if (!testRouterConnectivity(startTime)) {
         return false;
     }
 

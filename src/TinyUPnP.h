@@ -128,19 +128,19 @@ class TinyUPnP
         TinyUPnP(unsigned long timeoutMs);
         ~TinyUPnP();
         // when the ruleIP is set to the current device IP, the IP of the rule will change if the device changes its IP
-        // this makes sure the traffic will be directed to the device even if the IP chnages
+        // this makes sure the traffic will be directed to the device even if the IP changes
         void addPortMappingConfig(IPAddress ruleIP /* can be NULL */, int rulePort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName);
         void addPortMappingConfig(IPAddress ruleIP /* can be NULL */, int ruleInternalPort, int ruleExternalPort, String ruleProtocol, int ruleLeaseDuration, String ruleFriendlyName);
         portMappingResult commitPortMappings();
         portMappingResult updatePortMappings(unsigned long intervalMs, callback_function fallback = NULL /* optional */);
         boolean printAllPortMappings();
         void printPortMappingConfig();  // prints all the port mappings that were added using `addPortMappingConfig`
-        boolean testConnectivity(unsigned long startTime = 0);
+        boolean testInternetConnectivity(unsigned long startTime = 0);
         /* API extensions - additional methods to the UPnP API */
         ssdpDeviceNode* listSsdpDevices();  // will create an object with all SSDP devices on the network
         void printSsdpDevices(ssdpDeviceNode* ssdpDeviceNode);  // will print all SSDP devices in teh list
     private:
-        boolean testLocalConnectivity(unsigned long startTime);
+        boolean testRouterConnectivity(unsigned long startTime);
         boolean connectUDP();
         void broadcastMSearch(bool isSsdpAll = false);
         ssdpDevice* waitForUnicastResponseToMSearch(IPAddress gatewayIP);
