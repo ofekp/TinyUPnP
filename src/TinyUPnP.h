@@ -136,6 +136,8 @@ class TinyUPnP
         boolean printAllPortMappings();
         void printPortMappingConfig();  // prints all the port mappings that were added using `addPortMappingConfig`
         boolean testInternetConnectivity(unsigned long startTime = 0);
+        [[deprecated("use testInternetConnectivity() instead")]]
+        boolean testConnectivity(unsigned long startTime = 0) { return testInternetConnectivity(startTime); }
         /* API extensions - additional methods to the UPnP API */
         ssdpDeviceNode* listSsdpDevices();  // will create an object with all SSDP devices on the network
         void printSsdpDevices(ssdpDeviceNode* ssdpDeviceNode);  // will print all SSDP devices in teh list
