@@ -140,6 +140,7 @@ class TinyUPnP
         ssdpDeviceNode* listSsdpDevices();  // will create an object with all SSDP devices on the network
         void printSsdpDevices(ssdpDeviceNode* ssdpDeviceNode);  // will print all SSDP devices in teh list
     private:
+        boolean testLocalConnectivity(unsigned long startTime);
         boolean connectUDP();
         void broadcastMSearch(bool isSsdpAll = false);
         ssdpDevice* waitForUnicastResponseToMSearch(IPAddress gatewayIP);
